@@ -36,27 +36,63 @@ reference entries derived from SRD-licensed material.
 
 ---
 
-## Explorer's Guide to Wildemount
+## Matthew Mercer & the World of Exandria
 
-The Wildemount setting — including the Dwendalian Empire, Kryn Dynasty,
-Cerberus Assembly, and related factions, locations, deities, and lore —
-was created by **Matthew Mercer** for **Critical Role** and published in
-*Explorer's Guide to Wildemount* (Wizards of the Coast, 2020).
+The world of **Exandria** — the campaign setting that encompasses Wildemount —
+was conceived, built, and brought to life by **Matthew Mercer**. Mercer is the
+creator, lead writer, and Dungeon Master of *Critical Role*, and Exandria is
+entirely his original creation. Wildemount is one continent within that world,
+first explored publicly in Critical Role's **Campaign 2: The Mighty Nein**
+(2018–2021).
 
-- *Dungeons & Dragons* and *Explorer's Guide to Wildemount* are trademarks
-  of Wizards of the Coast LLC.
-- Critical Role and the Wildemount setting are trademarks of Critical Role, LLC.
+All of the following elements used by this tool originate from Matthew Mercer's
+creative work and are his intellectual property, licensed to and published
+through the parties listed below:
 
-This tool uses brief descriptive summaries of Wildemount lore for reference
-purposes within a fan tool and does not reproduce substantial verbatim text
-from the published sourcebook.
+- The continent of **Wildemount** and all its geography, history, and cultures
+- The **Dwendalian Empire**, **Kryn Dynasty**, **Cerberus Assembly**,
+  **Cobalt Soul**, **The Revelry**, **The Myriad**, and all other factions
+- All named locations: Rexxentrum, Zadash, Rosohna, Nicodranas, Eiselcross,
+  and every city, ruin, and region within Wildemount
+- **Dunamancy** — the school of magic manipulating time and gravity, unique to
+  Exandria — and the subclasses built around it (Echo Knight, Chronurgy Magic,
+  Graviturgy Magic)
+- The **Luxon** and the consecution belief system of the Kryn Dynasty
+- The Wildemount-unique player races: Pallid Elf, Lotusden Halfling,
+  Draconblood Dragonborn, Ravenite Dragonborn
+- All NPC names, faction hooks, and plot seeds that originate from the setting
 
-If you use this tool commercially or distribute it in ways that go beyond
-personal / fan use, review the
-[WotC Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
-and consult Critical Role's own
-[Community Guidelines](https://critrole.com/community-guidelines/) before
-doing so.
+**Matthew Mercer** is the original author and creator.
+**Critical Role, LLC** holds the IP for the Exandria setting and all
+associated creative works.
+
+---
+
+## Explorer's Guide to Wildemount (the Book)
+
+The lore data in this project is drawn from:
+
+> *Explorer's Guide to Wildemount*
+> Written by Matthew Mercer with James Haeck, James Introcaso, and Chris Lockey
+> Published by Wizards of the Coast LLC, March 17, 2020
+> ISBN: 978-0-7869-6691-4
+
+- *Dungeons & Dragons*, *Explorer's Guide to Wildemount*, and the dragon ampersand
+  logo are trademarks of Wizards of the Coast LLC.
+- The Exandria setting, Wildemount, and all associated creative elements are
+  trademarks and copyright of **Critical Role, LLC**.
+- © 2020 Wizards of the Coast LLC and Critical Role, LLC. All rights reserved.
+
+This tool uses brief original summaries of published lore for reference purposes
+within a non-commercial fan tool. It does not reproduce substantial verbatim text
+from the sourcebook.
+
+**If you fork, adapt, or distribute this project**, review both:
+- [WotC Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
+- [Critical Role Community Guidelines](https://critrole.com/community-guidelines/)
+
+Commercial use of Wildemount content without a licence from Wizards of the Coast
+and/or Critical Role, LLC is not permitted.
 
 ---
 

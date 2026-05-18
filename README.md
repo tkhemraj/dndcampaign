@@ -174,10 +174,11 @@ Monster stat blocks and rules mechanics are derived from the
 **D&D SRD 5.2** © Wizards of the Coast LLC, licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-The Wildemount setting, factions, and lore were created by Matthew Mercer
-for Critical Role and published in *Explorer's Guide to Wildemount*
-(Wizards of the Coast, 2020). Trademarks of Wizards of the Coast LLC
-and Critical Role, LLC.
+The world of Exandria and the continent of Wildemount — including all factions,
+locations, Dunamancy, and lore used in this project — were **created by
+Matthew Mercer** and are the intellectual property of **Critical Role, LLC**,
+published in *Explorer's Guide to Wildemount* (Wizards of the Coast, 2020).
+© Critical Role, LLC and Wizards of the Coast LLC. All rights reserved.
 
 Music synthesis by [Tone.js](https://tonejs.github.io/) (MIT).
 
