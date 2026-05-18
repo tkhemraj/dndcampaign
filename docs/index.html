@@ -4,1156 +4,308 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>D&D Campaign Generator — Wildemount DM Toolkit</title>
-  <meta name="description" content="A full-featured Dungeon Master toolkit for Wildemount and Exandria. Procedural maps, live browser music, NPCs, quests, and encounter tracking — all local, no subscriptions.">
+  <meta name="description" content="Full Dungeon Master toolkit for Wildemount and Exandria. Procedural maps, live synthesised music, NPC generator, encounter builder, initiative tracker, and deep Wildemount lore — all local, no server.">
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:       #0e0c0a;
-      --surface:  #1a1612;
-      --surface2: #221d17;
-      --border:   #3d2f22;
-      --accent:   #c8973c;
-      --gold:     #f0c040;
-      --purple:   #8b4c9e;
-      --purple2:  #b06ccc;
-      --text:     #d4c5a9;
-      --muted:    #7d6b55;
-      --ok:       #3fb950;
-      --warn:     #d29922;
-      --crit:     #c84040;
+      --bg:      #0e0c0a;
+      --surface: #1a1612;
+      --surf2:   #221d17;
+      --border:  #3d2f22;
+      --border2: #2a2118;
+      --accent:  #c8973c;
+      --gold:    #f0c040;
+      --purple:  #8b4c9e;
+      --purp2:   #b06ccc;
+      --text:    #d4c5a9;
+      --muted:   #7d6b55;
+      --ok:      #3fb950;
+      --warn:    #d29922;
+      --crit:    #c84040;
     }
 
     html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.5; height: 100vh; overflow: hidden; }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.6;
-      font-size: 15px;
-    }
+    /* ── Layout ── */
+    #app { display: flex; height: 100vh; overflow: hidden; }
+    #sidebar { width: 210px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+    #main { flex: 1; overflow-y: auto; }
+    #content { max-width: 1000px; margin: 0 auto; padding: 24px 24px 80px; }
 
-    /* ── Nav ── */
-    nav {
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(14,12,10,0.92);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      height: 52px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .nav-brand {
-      font-size: 16px; font-weight: 700; color: var(--accent);
-      text-decoration: none; display: flex; align-items: center; gap: 8px;
-    }
-    .nav-links { display: flex; gap: 6px; align-items: center; }
-    .nav-links a {
-      color: var(--muted); text-decoration: none; font-size: 13px;
-      padding: 6px 12px; border-radius: 6px; transition: all .15s;
-    }
-    .nav-links a:hover { color: var(--text); background: var(--surface); }
-    .btn-nav-gh {
-      background: var(--surface2) !important;
-      border: 1px solid var(--border) !important;
-      color: var(--accent) !important;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .btn-nav-gh:hover { border-color: var(--accent) !important; color: var(--gold) !important; background: #2a1f12 !important; }
+    /* ── Sidebar ── */
+    .sidebar-top { padding: 16px 14px 12px; border-bottom: 1px solid var(--border); }
+    .sidebar-brand { font-size: 16px; font-weight: 800; color: var(--accent); margin-bottom: 10px; }
+    .camp-selector-wrap { margin-top: 4px; }
+    .camp-select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+    .camp-select:focus { outline: none; border-color: var(--accent); }
 
-    /* ── Hero ── */
-    .hero {
-      text-align: center;
-      padding: 80px 24px 60px;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    .hero-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: #2a1800; border: 1px solid var(--border);
-      color: var(--muted); font-size: 12px; font-weight: 600;
-      padding: 4px 12px; border-radius: 20px;
-      letter-spacing: .04em; text-transform: uppercase;
-      margin-bottom: 24px;
-    }
-    .hero-badge span { color: var(--accent); }
-    .hero h1 {
-      font-size: clamp(32px, 6vw, 56px);
-      font-weight: 900;
-      color: var(--gold);
-      line-height: 1.1;
-      letter-spacing: -.01em;
-      margin-bottom: 20px;
-      text-shadow: 0 0 60px rgba(240,192,64,.25);
-    }
-    .hero h1 em {
-      font-style: normal;
-      background: linear-gradient(135deg, var(--purple2), var(--purple));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .hero p {
-      font-size: 18px; color: var(--muted); max-width: 600px;
-      margin: 0 auto 32px;
-    }
-    .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 12px 24px; border-radius: 8px; font-weight: 600;
-      font-size: 14px; text-decoration: none; border: none; cursor: pointer;
-      transition: all .18s; letter-spacing: .02em;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #c8973c, #a07020);
-      color: #0e0c0a;
-      box-shadow: 0 0 24px rgba(200,151,60,.3);
-    }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 32px rgba(200,151,60,.5); }
-    .btn-secondary {
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--text);
-    }
-    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); background: #251c10; }
-    .btn-purple {
-      background: linear-gradient(135deg, #8b4c9e, #60327a);
-      color: #fff;
-      box-shadow: 0 0 24px rgba(139,76,158,.3);
-    }
-    .btn-purple:hover { transform: translateY(-1px); box-shadow: 0 0 32px rgba(139,76,158,.5); }
+    .sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-item { display: block; padding: 9px 16px; color: var(--muted); text-decoration: none; cursor: pointer; font-size: 13px; font-weight: 500; border-left: 3px solid transparent; transition: all .15s; user-select: none; }
+    .nav-item:hover { color: var(--text); background: var(--surf2); }
+    .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(200,151,60,.07); }
+    .nav-combat { color: var(--crit) !important; }
+    .nav-combat.active { border-left-color: var(--crit) !important; }
 
-    .hero-pills {
-      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
-      margin-bottom: 36px;
-    }
-    .pill {
-      background: var(--surface); border: 1px solid var(--border);
-      color: var(--muted); font-size: 12px; padding: 4px 12px;
-      border-radius: 20px;
-    }
+    .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+    #music-mini { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; min-height: 24px; }
+    .mini-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+    .mini-dot.playing { background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+    .mini-label { font-size: 12px; color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mini-stop { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 2px; }
+    .mini-stop:hover { color: var(--crit); }
+    .btn-new-camp { width: 100%; background: var(--surf2); border: 1px solid var(--border); color: var(--muted); padding: 8px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all .15s; }
+    .btn-new-camp:hover { border-color: var(--accent); color: var(--accent); }
 
-    /* ── Section wrapper ── */
-    .section { max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
-    .section-header { text-align: center; margin-bottom: 48px; }
-    .section-header h2 {
-      font-size: 28px; font-weight: 800; color: var(--accent);
-      margin-bottom: 8px;
-    }
-    .section-header p { color: var(--muted); font-size: 15px; }
-    .section-divider {
-      border: none; border-top: 1px solid var(--border);
-      max-width: 1100px; margin: 0 auto 80px;
-    }
+    /* ── Buttons ── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 7px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; transition: all .15s; text-decoration: none; }
+    .btn-primary { background: linear-gradient(135deg,var(--accent),#a07020); color: #0e0c0a; }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-secondary { background: var(--surf2); border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: #3a0a0a; border: 1px solid #5a1a1a; color: var(--crit); }
+    .btn-danger:hover { background: #5a0a0a; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn-lg { padding: 13px 28px; font-size: 15px; }
+    .btn-link { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 12px; padding: 0; }
+    .btn-link:hover { text-decoration: underline; }
+    .btn-icon { background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 4px; font-size: 12px; }
+    .btn-danger-icon { color: var(--muted); }
+    .btn-danger-icon:hover { color: var(--crit); }
 
-    /* ── Music player ── */
-    #music-section { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 72px 0; }
-    #music-section .section-header h2 { color: var(--gold); }
-    .music-now-playing {
-      text-align: center; margin-bottom: 32px;
-      min-height: 28px;
-    }
-    .now-playing-badge {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: var(--surface2); border: 1px solid var(--border);
-      padding: 6px 16px; border-radius: 20px;
-      color: var(--muted); font-size: 13px;
-      transition: all .3s;
-    }
-    .now-playing-badge.active {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: #251800;
-      box-shadow: 0 0 20px rgba(200,151,60,.2);
-    }
-    .now-playing-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--muted); transition: all .3s;
-    }
-    .now-playing-badge.active .now-playing-dot {
-      background: var(--accent);
-      animation: pulse-dot 1.4s ease-in-out infinite;
-    }
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: .5; transform: scale(1.4); }
-    }
+    /* ── Forms ── */
+    .form-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+    .form-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 13px; width: 100%; }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .form-select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+    .form-select:focus { outline: none; border-color: var(--accent); }
+    .form-textarea { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 13px; width: 100%; resize: vertical; min-height: 100px; }
+    .form-textarea:focus { outline: none; border-color: var(--accent); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 
-    .mood-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-      gap: 14px;
-    }
-    .mood-card {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px 16px 18px;
-      cursor: pointer;
-      transition: all .18s;
-      text-align: center;
-      user-select: none;
-      position: relative;
-      overflow: hidden;
-    }
-    .mood-card::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(135deg, transparent 60%, rgba(200,151,60,.04));
-      pointer-events: none;
-    }
-    .mood-card:hover {
-      border-color: var(--accent);
-      background: #1a1200;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0,0,0,.4);
-    }
-    .mood-card.active {
-      border-color: var(--gold);
-      background: #201800;
-      box-shadow: 0 0 28px rgba(240,192,64,.2);
-    }
-    .mood-card.active-purple {
-      border-color: var(--purple2);
-      background: #180a22;
-      box-shadow: 0 0 28px rgba(139,76,158,.25);
-    }
-    .mood-icon { font-size: 32px; margin-bottom: 8px; }
-    .mood-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-    .mood-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
-    .mood-bpm {
-      position: absolute; top: 10px; right: 10px;
-      font-size: 10px; color: var(--muted);
-      background: var(--surface); border: 1px solid var(--border);
-      padding: 2px 6px; border-radius: 4px;
-    }
-    .mood-playing-label {
-      position: absolute; bottom: 10px; right: 10px;
-      font-size: 10px; font-weight: 700;
-      color: var(--gold);
-      opacity: 0; transition: opacity .2s;
-    }
-    .mood-card.active .mood-playing-label,
-    .mood-card.active-purple .mood-playing-label { opacity: 1; }
+    /* ── Views ── */
+    .view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
+    .view-header h1 { font-size: 22px; font-weight: 800; color: var(--text); margin: 0; }
+    .view-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .header-actions { display: flex; gap: 8px; }
+    .section-hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 
-    .music-controls {
-      display: flex; align-items: center; justify-content: center;
-      gap: 16px; margin-top: 28px; flex-wrap: wrap;
-    }
-    .volume-row {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; padding: 8px 16px;
-    }
-    .volume-row label { color: var(--muted); font-size: 12px; }
-    input[type=range] {
-      width: 100px; accent-color: var(--accent); cursor: pointer;
-    }
-    .volume-val { color: var(--muted); font-size: 12px; min-width: 40px; }
-    .btn-stop {
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--muted); border-radius: 8px; padding: 8px 16px;
-      cursor: pointer; font-size: 13px; transition: all .15s;
-    }
-    .btn-stop:hover { border-color: var(--crit); color: var(--crit); background: #1a0808; }
+    /* ── Welcome ── */
+    .welcome-wrap { display: flex; align-items: center; justify-content: center; min-height: 70vh; }
+    .welcome-box { text-align: center; max-width: 480px; }
+    .welcome-icon { font-size: 52px; margin-bottom: 16px; }
+    .welcome-title { font-size: 28px; font-weight: 900; color: var(--gold); margin-bottom: 12px; }
+    .welcome-sub { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 28px; }
 
-    /* ── Screenshots ── */
-    .screenshot-wrap {
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      box-shadow: 0 24px 64px rgba(0,0,0,.6);
-      background: var(--surface);
-      position: relative;
-    }
-    .screenshot-wrap img,
-    .screenshot-wrap object,
-    .screenshot-wrap iframe {
-      width: 100%; display: block;
-    }
-    .screenshot-caption {
-      padding: 12px 16px;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      color: var(--muted); font-size: 12px;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .screenshot-caption strong { color: var(--text); }
-    .screenshots-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 32px;
-    }
+    /* ── Dashboard ── */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); gap: 10px; margin-bottom: 24px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 12px; text-align: center; }
+    .stat-num { font-size: 24px; font-weight: 800; color: var(--accent); }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .04em; }
+    .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 700px) { .dash-grid { grid-template-columns: 1fr; } }
+    .dash-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 13px; font-weight: 700; color: var(--text); }
+    .dash-btn { display: block; width: 100%; margin-bottom: 8px; text-align: left; }
 
-    /* ── Features ── */
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 16px;
-    }
-    .feature-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px;
-      transition: border-color .15s;
-    }
-    .feature-card:hover { border-color: #5a4030; }
-    .feature-icon { font-size: 24px; margin-bottom: 10px; }
-    .feature-title { font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
-    .feature-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    /* ── List rows ── */
+    .list-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; margin-bottom: 6px; cursor: pointer; gap: 12px; }
+    .list-row:hover { border-color: var(--border); }
+    .list-name { font-weight: 600; color: var(--text); font-size: 13px; }
+    .list-meta { font-size: 11px; color: var(--muted); }
+    .empty-msg { color: var(--muted); font-size: 13px; font-style: italic; padding: 8px 0; }
 
-    /* ── Wildemount lore strip ── */
-    .lore-strip {
-      background: linear-gradient(135deg, #0e0820 0%, #160a22 50%, #0e0c0a 100%);
-      border: 1px solid #3a1e4a;
-      border-radius: 12px;
-      padding: 40px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
-      align-items: start;
-    }
-    @media (max-width: 640px) { .lore-strip { grid-template-columns: 1fr; } }
-    .lore-strip h3 { font-size: 20px; font-weight: 800; color: var(--purple2); margin-bottom: 12px; }
-    .lore-strip p { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 16px; }
+    /* ── Tags ── */
+    .tag-ok   { background: #0a1a0a; color: var(--ok);   border: 1px solid #1a3a1a; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+    .tag-warn { background: #1a1200; color: var(--warn);  border: 1px solid #3a2a00; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+    .tag-crit { background: #1a0000; color: var(--crit);  border: 1px solid #3a1010; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+    .tag-muted{ background: var(--surf2); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+
+    /* ── Gen controls ── */
+    .gen-controls { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+    .gen-field { display: flex; flex-direction: column; }
+
+    /* ── Map ── */
+    .map-controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .map-wrap { background: #050403; border: 1px solid var(--border); border-radius: 10px; overflow: auto; padding: 12px; }
+    .map-placeholder { color: var(--muted); font-size: 13px; font-style: italic; padding: 40px; text-align: center; }
+    .map-title { color: var(--accent); font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+    .map-legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+    .legend-dot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── Music ── */
+    .music-now { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; font-size: 13px; display: flex; align-items: center; gap: 10px; min-height: 40px; }
+    .now-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+    .now-dot.playing { background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+    .mood-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 12px; margin-bottom: 20px; }
+    .mood-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px 14px 16px; cursor: pointer; transition: all .16s; text-align: center; user-select: none; position: relative; }
+    .mood-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+    .mood-card.active { border-color: var(--gold); background: #1a1200; box-shadow: 0 0 24px rgba(240,192,64,.15); }
+    .mood-card.active.purple { border-color: var(--purp2); background: #150820; box-shadow: 0 0 24px rgba(176,108,204,.2); }
+    .mood-bpm { position: absolute; top: 8px; right: 8px; font-size: 10px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; }
+    .mood-icon { font-size: 28px; margin-bottom: 7px; }
+    .mood-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .mood-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+    .music-vol-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .music-vol-row label { color: var(--muted); font-size: 12px; }
+    input[type=range] { accent-color: var(--accent); cursor: pointer; width: 100px; }
+    .vol-label { font-size: 12px; color: var(--muted); min-width: 45px; }
+
+    /* ── Stat block ── */
+    .stat-block { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    .sb-name { font-size: 18px; font-weight: 800; color: var(--text); }
+    .sb-sub { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+    .sb-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+    .sb-row { display: flex; align-items: baseline; gap: 8px; font-size: 13px; margin-bottom: 4px; }
+    .sb-key { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+    .sb-stats { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+    .sb-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; text-align: center; min-width: 52px; }
+    .sb-sval { font-size: 18px; font-weight: 800; color: var(--text); }
+    .sb-smod { font-size: 13px; color: var(--accent); }
+    .sb-skey { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+
+    /* ── Info cards ── */
+    .info-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .ic-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+    .ic-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 13px; flex-wrap: wrap; }
+    .ic-key { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; flex-shrink: 0; }
+
+    /* ── Quests ── */
+    .quest-row { cursor: default; }
+    .quest-row:hover { border-color: var(--border); }
+
+    /* ── Combat tracker ── */
+    .combat-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .combat-header h1 { font-size: 20px; font-weight: 800; margin: 0; }
+    .combat-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .combat-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .active-banner { background: #201800; border: 1px solid var(--accent); border-radius: 6px; padding: 7px 14px; font-size: 13px; color: var(--gold); margin-bottom: 14px; }
+
+    .combatant-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; margin-bottom: 8px; transition: all .15s; }
+    .combatant-active { background: #1c1400; border-color: var(--accent) !important; box-shadow: 0 0 18px rgba(200,151,60,.12); }
+    .combatant-dead { opacity: .45; }
+
+    .cr-init { text-align: center; min-width: 38px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+    .cr-init:hover { background: var(--surf2); }
+    .cr-init-num { font-size: 18px; font-weight: 800; color: var(--text); line-height: 1; }
+    .cr-init-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+    .cr-body { flex: 1; min-width: 0; }
+    .cr-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+    .cr-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .cr-player { color: var(--accent); }
+    .cr-player-label { background: #1a1200; color: var(--accent); border: 1px solid var(--border); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; }
+    .cr-meta { font-size: 11px; color: var(--muted); }
+    .cr-active-badge { background: #2a1a00; color: var(--gold); border: 1px solid #4a3000; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+    .cr-dead-badge { background: #1a0000; color: var(--crit); border: 1px solid #3a1010; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+
+    .cr-mid { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+    .cr-hp-area { display: flex; flex-direction: column; gap: 3px; }
+    .cr-hp-text { font-size: 13px; font-weight: 600; color: var(--text); }
+    .cr-hp-crit { color: var(--crit); }
+    .cr-hp-low  { color: var(--warn); }
+    .cr-hp-bar-wrap { width: 140px; height: 5px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+    .cr-hp-bar { height: 100%; border-radius: 3px; transition: width .3s; }
+    .hp-ok   { background: linear-gradient(90deg, var(--ok), #2a7a3a); }
+    .hp-low  { background: linear-gradient(90deg, var(--warn), #a07010); }
+    .hp-crit { background: linear-gradient(90deg, var(--crit), #8a1010); }
+    .cr-ac { font-size: 13px; color: var(--text); background: var(--bg); border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; }
+
+    .cr-conds { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .cond-tag { background: #2a1a0a; border: 1px solid var(--border); color: var(--warn); font-size: 11px; padding: 2px 8px; border-radius: 10px; cursor: pointer; }
+    .cond-tag:hover { color: var(--crit); border-color: var(--crit); }
+    .cond-add { background: none; border: 1px dashed var(--border); color: var(--muted); font-size: 11px; padding: 2px 8px; border-radius: 10px; cursor: pointer; }
+    .cond-add:hover { border-color: var(--accent); color: var(--accent); }
+    .cr-note { font-size: 11px; color: var(--muted); font-style: italic; }
+
+    .cr-btns { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+    .cr-btn { background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 5px; cursor: pointer; transition: all .12s; white-space: nowrap; }
+    .cr-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .cr-btn-heal:hover { border-color: var(--ok); color: var(--ok); }
+    .cr-btn-dmg:hover  { border-color: var(--crit); color: var(--crit); }
+    .cr-btn-del:hover  { border-color: var(--crit); color: var(--crit); }
+
+    .cond-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cond-pick-btn { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 7px 14px; border-radius: 6px; cursor: pointer; }
+    .cond-pick-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Lore ── */
+    .lore-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+    .lore-tab { background: none; border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .lore-tab:hover { color: var(--text); border-color: var(--accent); }
+    .lore-tab.active { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+    .lore-section-title { font-size: 14px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 16px 0 10px; }
+    .deity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px,1fr)); gap: 8px; }
+    .deity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; }
+    .deity-name { font-weight: 700; color: var(--text); font-size: 13px; }
+    .deity-domain { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .deity-align { font-size: 11px; color: var(--accent); margin-top: 2px; }
     .lore-list { list-style: none; }
-    .lore-list li {
-      display: flex; align-items: baseline; gap: 8px;
-      font-size: 13px; color: var(--muted);
-      padding: 5px 0; border-bottom: 1px solid #2a1a3a;
-    }
+    .lore-list li { padding: 5px 0; border-bottom: 1px solid var(--border2); font-size: 13px; color: var(--muted); }
     .lore-list li:last-child { border-bottom: none; }
-    .lore-list li .tag {
-      color: var(--purple2); font-weight: 600;
-      min-width: 80px; font-size: 12px;
+    .plot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 12px; }
+    .plot-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+    .plot-num { color: var(--accent); font-weight: 800; font-size: 16px; margin-bottom: 6px; }
+    .plot-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .name-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .name-item { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 6px 12px; border-radius: 6px; }
+
+    /* ── Modal ── */
+    #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
+    #modal-overlay.hidden { display: none; }
+    #modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+    #modal-title { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 16px; }
+    #modal-body { margin-bottom: 16px; }
+    #modal-body label { display: block; margin-top: 12px; }
+    #modal-body label:first-child { margin-top: 0; }
+    #modal-buttons { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+    /* ── Toast ── */
+    #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--accent); color: var(--accent); padding: 8px 20px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 2000; }
+    #toast.show { opacity: 1; }
+
+    /* ── Responsive sidebar ── */
+    @media (max-width: 600px) {
+      #sidebar { width: 160px; }
+      .nav-item { font-size: 12px; padding: 8px 12px; }
+    }
+    @media (max-width: 480px) {
+      #sidebar { display: none; }
+      #content { padding: 16px; }
     }
 
-    /* ── Music table ── */
-    .music-table {
-      width: 100%; border-collapse: collapse;
-      background: var(--surface);
-      border-radius: 10px; overflow: hidden;
-      border: 1px solid var(--border);
-    }
-    .music-table th {
-      background: var(--surface2);
-      padding: 10px 16px;
-      text-align: left; font-size: 11px;
-      text-transform: uppercase; letter-spacing: .06em;
-      color: var(--muted); font-weight: 700;
-      border-bottom: 1px solid var(--border);
-    }
-    .music-table td {
-      padding: 10px 16px; font-size: 13px;
-      border-bottom: 1px solid #251e18;
-    }
-    .music-table tr:last-child td { border-bottom: none; }
-    .music-table tr:hover td { background: #1e1812; }
-    .music-table td:first-child { font-size: 18px; }
-    .music-table td:nth-child(2) { color: var(--text); font-weight: 600; }
-    .music-table td:nth-child(3) { color: var(--muted); }
-    .music-table .bpm-tag {
-      background: var(--bg); border: 1px solid var(--border);
-      color: var(--muted); font-size: 11px; padding: 2px 6px;
-      border-radius: 4px;
-    }
-
-    /* ── Quickstart ── */
-    .code-block {
-      background: #080706;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 24px;
-      font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
-      font-size: 13px;
-      line-height: 1.8;
-      overflow-x: auto;
-    }
-    .code-block .comment { color: #5a4a35; }
-    .code-block .cmd { color: var(--text); }
-    .code-block .out { color: var(--muted); }
-    .code-block .highlight { color: var(--accent); }
-
-    /* ── Footer ── */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 48px 24px 32px;
-      max-width: 1100px; margin: 0 auto;
-    }
-    .footer-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr;
-      gap: 40px;
-      margin-bottom: 32px;
-    }
-    @media (max-width: 640px) { .footer-grid { grid-template-columns: 1fr; } }
-    .footer-brand { font-size: 18px; font-weight: 800; color: var(--accent); margin-bottom: 10px; }
-    .footer-tagline { color: var(--muted); font-size: 13px; line-height: 1.7; }
-    footer h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 12px; }
-    footer ul { list-style: none; }
-    footer ul li { margin-bottom: 8px; }
-    footer ul li a { color: var(--muted); text-decoration: none; font-size: 13px; transition: color .15s; }
-    footer ul li a:hover { color: var(--accent); }
-    .footer-legal {
-      border-top: 1px solid var(--border);
-      padding-top: 24px;
-      color: var(--muted); font-size: 11px; line-height: 1.8;
-    }
-    .footer-legal a { color: var(--muted); text-decoration: underline; }
-
-    /* ── Misc ── */
-    .text-accent { color: var(--accent); }
-    .text-purple { color: var(--purple2); }
-    .text-gold   { color: var(--gold); }
-    .text-muted  { color: var(--muted); }
-    .tag-hard { background: #3a0f0f; color: var(--crit); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
-    .tag-medium { background: #2a1800; color: var(--warn); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
-    .tag-faction { background: #1a1200; border: 1px solid var(--border); color: var(--accent); font-size: 11px; padding: 2px 8px; border-radius: 4px; }
-
-    .map-preview {
-      background: #060504;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 24px;
-      text-align: center;
-    }
-    .map-legend {
-      display: flex; flex-wrap: wrap; gap: 8px;
-      justify-content: center; margin-top: 16px;
-    }
-    .map-legend-item {
-      display: flex; align-items: center; gap: 5px;
-      font-size: 11px; color: var(--muted);
-    }
-    .map-legend-dot {
-      width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0;
-    }
-
-    .alert-box {
-      background: #1a0e00; border: 1px solid #4a2e00;
-      border-left: 3px solid var(--accent);
-      border-radius: 6px; padding: 14px 18px;
-      color: var(--muted); font-size: 13px;
-      margin-bottom: 32px;
-      display: flex; gap: 10px; align-items: flex-start;
-    }
-    .alert-box .icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    /* ── Scrollbars ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
   </style>
 </head>
 <body>
 
-<!-- ── Navigation ── -->
-<nav>
-  <a class="nav-brand" href="#">
-    ⚔ D&amp;D Campaign Generator
-  </a>
-  <div class="nav-links">
-    <a href="#music">Music</a>
-    <a href="#screenshots">Tracker</a>
-    <a href="#features">Features</a>
-    <a href="#wildemount">Wildemount</a>
-    <a href="https://github.com/tkhemraj/dndcampaign" class="btn-nav-gh">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      GitHub
-    </a>
+<div id="app">
+  <aside id="sidebar"></aside>
+  <div id="main">
+    <div id="content"></div>
   </div>
-</nav>
+</div>
 
-<!-- ── Hero ── -->
-<section style="padding-top: 72px; padding-bottom: 20px;">
-  <div class="hero">
-    <div class="hero-badge">
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="var(--accent)"><circle cx="5" cy="5" r="5"/></svg>
-      <span>Wildemount &amp; Exandria</span> · Fan Content · All Local · No Subscriptions
-    </div>
-    <h1>The Dungeon Master's<br><em>Spellbook</em></h1>
-    <p>Procedural maps, live browser music, NPC generator, encounter tracker, and deep Wildemount lore — everything you need to run a campaign, running entirely in your browser.</p>
-    <div class="hero-pills">
-      <span class="pill">🗺 22 map subtypes</span>
-      <span class="pill">🎵 8 live music moods</span>
-      <span class="pill">👹 CR-balanced encounters</span>
-      <span class="pill">🧙 Faction-aware NPCs</span>
-      <span class="pill">📜 Wildemount lore</span>
-      <span class="pill">⚔ Initiative tracker</span>
-      <span class="pill">💾 SQLite storage</span>
-    </div>
-    <div class="hero-ctas">
-      <a href="https://github.com/tkhemraj/dndcampaign" class="btn btn-primary">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        Get on GitHub
-      </a>
-      <a href="#music" class="btn btn-purple">🎵 Play Music Now</a>
-      <a href="#screenshots" class="btn btn-secondary">See it in action →</a>
-    </div>
+<!-- Modal -->
+<div id="modal-overlay" class="hidden">
+  <div id="modal">
+    <div id="modal-title"></div>
+    <div id="modal-body"></div>
+    <div id="modal-buttons"></div>
   </div>
-</section>
+</div>
 
-<!-- ── Music Player ── -->
-<section id="music" style="background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 72px 0;">
-  <div class="section" style="padding-bottom: 0;">
-    <div class="section-header">
-      <h2 style="color: var(--gold);">🎵 Live Procedural Music</h2>
-      <p>Eight moods synthesised <em>in your browser</em> using Tone.js — no audio files, no CDN media, no downloads.<br>Click any mood to start playing. It loops until you stop it.</p>
-    </div>
-
-    <div class="alert-box">
-      <span class="icon">🔊</span>
-      <div>Your browser may require a click before audio starts. Just click any mood card and it will begin. Use the volume slider to adjust level — some headphone listeners prefer −20 dB.</div>
-    </div>
-
-    <div class="music-now-playing">
-      <div class="now-playing-badge" id="now-playing-badge">
-        <div class="now-playing-dot"></div>
-        <span id="now-playing-text">No music playing — click a mood to start</span>
-      </div>
-    </div>
-
-    <div class="mood-grid" id="mood-grid"></div>
-
-    <div class="music-controls">
-      <div class="volume-row">
-        <label>Volume</label>
-        <input type="range" id="volume-slider" min="-40" max="0" value="-14" step="1">
-        <span class="volume-val" id="volume-val">−14 dB</span>
-      </div>
-      <button class="btn-stop" id="btn-stop">⏹ Stop</button>
-    </div>
-
-    <div style="margin-top: 40px; overflow-x: auto;">
-      <table class="music-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Mood</th>
-            <th>Best for</th>
-            <th>BPM</th>
-          </tr>
-        </thead>
-        <tbody id="music-table-body"></tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<!-- ── Screenshots ── -->
-<section id="screenshots" style="padding: 80px 0 0;">
-  <div class="section">
-    <div class="section-header">
-      <h2>⚔ Initiative Tracker</h2>
-      <p>Roll for the whole table in one click. Click HP to damage or heal. Apply conditions. Advance turns. Enemies auto-built from CR-balanced encounter generation.</p>
-    </div>
-    <div class="screenshots-grid">
-      <div>
-        <div class="screenshot-wrap">
-          <img src="screenshot-combat.svg" alt="Initiative tracker showing Cerberus Assembly Ambush — Hard encounter, Round 2, with Caleb on active turn, Assembly Mage A blinded and low HP, Fjord frightened, Myriad Assassin defeated">
-          <div class="screenshot-caption">
-            <span>⚔</span>
-            <div><strong>Cerberus Assembly Ambush</strong> · Hard · Round 2 · 6 combatants · Caleb's turn active · 1 enemy defeated</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── Map Preview ── -->
-<section style="padding: 80px 0 0;">
-  <div class="section">
-    <div class="section-header">
-      <h2>🗺 Procedural Maps</h2>
-      <p>BSP dungeons, outdoor terrain, interiors, and 10 Wildemount-specific presets. Every map renders on Canvas and exports as PNG for the table.</p>
-    </div>
-    <div class="map-preview">
-      <svg id="map-canvas" width="720" height="360" viewBox="0 0 720 360" style="max-width:100%; border-radius:6px;"></svg>
-      <div class="map-legend" id="map-legend"></div>
-      <div style="margin-top: 16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;" id="map-btns"></div>
-    </div>
-  </div>
-</section>
-
-<hr class="section-divider" style="margin-top: 80px;">
-
-<!-- ── Features ── -->
-<section id="features">
-  <div class="section">
-    <div class="section-header">
-      <h2>Everything at the Table</h2>
-      <p>One toolkit, zero cloud dependencies. Runs on Python 3.11 + a modern browser.</p>
-    </div>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">🗺</div>
-        <div class="feature-title">Procedural Maps</div>
-        <div class="feature-desc">BSP dungeon, outdoor terrain, five interior templates — 22 total subtypes including 10 Wildemount-specific presets. Renders on Canvas, exports PNG.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🎵</div>
-        <div class="feature-title">Live Browser Music</div>
-        <div class="feature-desc">Eight moods synthesised with Tone.js — no audio files, no CDN media. Tavern, Dungeon, Combat, Boss Fight, Wilderness, Kryn, Calamity, Victory.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">👹</div>
-        <div class="feature-title">Encounter Builder</div>
-        <div class="feature-desc">CR-balanced monster groups against party level and size using XP budget thresholds. Easy/Medium/Hard/Deadly difficulty. Multi-creature multiplier applied.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⚔</div>
-        <div class="feature-title">Initiative Tracker</div>
-        <div class="feature-desc">Roll initiative, track HP with colour-coded bars, apply conditions (Blinded, Frightened, Poisoned…), advance turns. Dead combatants greyed out.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🧙</div>
-        <div class="feature-title">NPC Generator</div>
-        <div class="feature-desc">Wildemount name tables by culture (Zemnian, Xhorhasian, Coastal). Faction-aware backstories. All four Wildemount-unique races included.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📜</div>
-        <div class="feature-title">Quest Generator</div>
-        <div class="feature-desc">Faction- and region-aware plot hooks across all 7 major factions. Reward tables scaled to party level. 17 curated Wildemount plot seeds.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📖</div>
-        <div class="feature-title">Lore Reference</div>
-        <div class="feature-desc">Full Wildemount panel: all factions, regions, deities (including the Luxon), Dunamancy subclasses, and 17 plot seeds. Everything in one sidebar.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">💾</div>
-        <div class="feature-title">Local SQLite Storage</div>
-        <div class="feature-desc">Multiple independent campaigns, each in their own SQLite DB. No cloud account, no API key, no subscription. Your data stays on your machine.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<hr class="section-divider">
-
-<!-- ── Wildemount ── -->
-<section id="wildemount">
-  <div class="section">
-    <div class="section-header">
-      <h2 style="color: var(--purple2);">🌑 Deep Wildemount Integration</h2>
-      <p>The full continent of Wildemount, as Matthew Mercer built it in Campaign 2 and <em>Explorer's Guide to Wildemount.</em></p>
-    </div>
-    <div class="lore-strip">
-      <div>
-        <h3>Factions &amp; Regions</h3>
-        <p>Every faction has its own NPC name weights, plot hook table, and region affiliation. Every region has location tables, terrain types, and encounter flavour.</p>
-        <ul class="lore-list">
-          <li><span class="tag">Empire</span> Dwendalian Empire · Western Wynandir</li>
-          <li><span class="tag">Assembly</span> Cerberus Assembly · Imperial mages</li>
-          <li><span class="tag">Dynasty</span> Kryn Dynasty · Xhorhas wastes</li>
-          <li><span class="tag">Soul</span> Cobalt Soul · monks and archivists</li>
-          <li><span class="tag">Revelry</span> The Revelry · Menagerie Coast pirates</li>
-          <li><span class="tag">Myriad</span> The Myriad · shadow crime network</li>
-          <li><span class="tag">Concord</span> Clovis Concord · coastal merchant lords</li>
-        </ul>
-      </div>
-      <div>
-        <h3>Races &amp; Subclasses</h3>
-        <p>All standard 5e races plus the four Wildemount-unique options. Three Dunamancy subclasses built around Echo Knight and time/gravity magic.</p>
-        <ul class="lore-list">
-          <li><span class="tag">Pallid Elf</span> sun-starved, underground lives</li>
-          <li><span class="tag">Lotusden</span> nature-attuned forest halfling</li>
-          <li><span class="tag">Draconblood</span> draconic nobles of Draconia</li>
-          <li><span class="tag">Ravenite</span> former slaves, rebellious</li>
-          <li><span class="tag">Echo Knight</span> Dunamancy alternate echoes</li>
-          <li><span class="tag">Chronurgy</span> manipulate time and initiative</li>
-          <li><span class="tag">Graviturgy</span> bend gravity, crush foes</li>
-        </ul>
-      </div>
-    </div>
-
-    <div style="margin-top: 24px; display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:10px;">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Map Presets</div>
-        <div style="color:var(--text);font-size:13px;line-height:1.8;">Xhorhas wastes<br>Aeor ruins · Rosohna<br>Dwendalian keep<br>Menagerie port<br>Savalirwood<br>Eiselcross tundra<br>Kryn temple<br>Cerberus Assembly lab<br>Bazzoxan caverns</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Deities</div>
-        <div style="color:var(--text);font-size:13px;line-height:1.8;">Full Wildemount pantheon<br>Prime Deities<br>Betrayer Gods<br><span style="color:var(--purple2);">The Luxon</span> — light and rebirth, worshipped by the Kryn Dynasty</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Plot Seeds</div>
-        <div style="color:var(--text);font-size:13px;line-height:1.8;">17 curated Wildemount seeds<br>Dunamancy artefacts<br>The Myriad in Zadash<br>Ruins of Aeor<br>Consecution mysteries<br>Calamity echoes in Eiselcross</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Name Culture Tables</div>
-        <div style="color:var(--text);font-size:13px;line-height:1.8;">Zemnian Imperial<br>Xhorhasian Kryn<br>Coastal Clovis<br>Each with authentic phonetic patterns from the setting</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<hr class="section-divider">
-
-<!-- ── Quick Start ── -->
-<section>
-  <div class="section">
-    <div class="section-header">
-      <h2>Quick Start</h2>
-      <p>Python 3.11+ and a modern browser. No API keys, no cloud accounts.</p>
-    </div>
-    <div class="code-block">
-      <span class="comment"># Clone and run</span><br>
-      <span class="cmd">git clone https://github.com/tkhemraj/dndcampaign.git</span><br>
-      <span class="cmd">cd dndcampaign</span><br>
-      <span class="cmd">pip install -r requirements.txt</span><br>
-      <span class="cmd">python run.py</span><br>
-      <br>
-      <span class="comment"># Open in browser</span><br>
-      <span class="highlight">http://localhost:8080</span><br>
-      <br>
-      <span class="out"># Create a campaign → Generate maps → Roll initiative → Play music</span>
-    </div>
-    <div style="text-align:center;margin-top:28px;">
-      <a href="https://github.com/tkhemraj/dndcampaign" class="btn btn-primary" style="margin-right:12px;">View on GitHub</a>
-      <a href="https://github.com/tkhemraj/dndcampaign/archive/refs/heads/master.zip" class="btn btn-secondary">Download ZIP</a>
-    </div>
-  </div>
-</section>
-
-<!-- ── Footer ── -->
-<footer>
-  <div class="footer-grid">
-    <div>
-      <div class="footer-brand">⚔ D&D Campaign Generator</div>
-      <p class="footer-tagline">A full-featured DM toolkit for Wildemount and Exandria. Procedural maps, live music, NPC generator, encounter builder, initiative tracker, and deep lore reference — all local, all yours.</p>
-    </div>
-    <div>
-      <h4>Project</h4>
-      <ul>
-        <li><a href="https://github.com/tkhemraj/dndcampaign">GitHub Repository</a></li>
-        <li><a href="https://github.com/tkhemraj/dndcampaign/blob/master/README.md">Documentation</a></li>
-        <li><a href="https://github.com/tkhemraj/dndcampaign/blob/master/NOTICE.md">Legal Notices</a></li>
-        <li><a href="https://github.com/tkhemraj/dndcampaign/blob/master/LICENSE">MIT License</a></li>
-      </ul>
-    </div>
-    <div>
-      <h4>Resources</h4>
-      <ul>
-        <li><a href="https://company.wizards.com/en/legal/fancontentpolicy">WotC Fan Content Policy</a></li>
-        <li><a href="https://critrole.com/community-guidelines/">Critical Role Guidelines</a></li>
-        <li><a href="https://tonejs.github.io/">Tone.js</a></li>
-        <li><a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0 (SRD)</a></li>
-      </ul>
-    </div>
-  </div>
-  <div class="footer-legal">
-    <p>This is <strong>unofficial Fan Content</strong> permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy">Wizards of the Coast Fan Content Policy</a>. Not endorsed or sponsored by Wizards of the Coast LLC.</p>
-    <p style="margin-top:6px;">Rules content and monster stat blocks are derived from the <strong>D&D Systems Reference Document 5.2</strong> © Wizards of the Coast LLC, licensed under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p>
-    <p style="margin-top:6px;">The world of <strong>Exandria</strong> — including Wildemount, all factions, locations, Dunamancy, and lore — was <strong>created by Matthew Mercer</strong> and is the intellectual property of <strong>Critical Role, LLC</strong>, published in <em>Explorer's Guide to Wildemount</em> (Wizards of the Coast, 2020). © Critical Role, LLC and Wizards of the Coast LLC. All rights reserved.</p>
-    <p style="margin-top:6px;">Music synthesis by <a href="https://tonejs.github.io/">Tone.js</a> © Yotam Mann (MIT). Original application code © 2026 tkhemraj (MIT).</p>
-  </div>
-</footer>
-
-<script>
-// ── Music Engine ─────────────────────────────────────────────────────────────
-
-const MOODS = {
-  tavern: {
-    icon: '🍺', name: 'Tavern', bpm: 126, key: 'C',
-    desc: 'Warm folk — Ruby Sunrise, any lit tavern',
-    when: 'A warm interior, between adventures',
-    melody: ['C4','E4','G4','A4','G4','E4','C5','B4','A4','G4','F4','E4','D4','C4','E4','G4'],
-    bass:   ['C2','G2','F2','G2'],
-    chord:  [['C3','E3','G3'],['F3','A3','C4'],['G3','B3','D4'],['C3','E3','G3']],
-    percussion: true, purpleTheme: false,
-  },
-  dungeon: {
-    icon: '💀', name: 'Dungeon', bpm: 52, key: 'D',
-    desc: 'Dark, sparse, unsettling atmosphere',
-    when: 'Slow exploration, the dark between rooms',
-    melody: ['D3','F3','Ab3','D3','C3','Eb3','F3','D3',null,null,'D3','Bb2',null,'F2',null,null],
-    bass:   ['D1','D1','A1','D1'],
-    chord:  [['D2','F2','Ab2'],['Bb1','D2','F2'],['A1','C2','Eb2'],['D2','F2','Ab2']],
-    percussion: false, purpleTheme: false,
-  },
-  combat: {
-    icon: '⚔', name: 'Combat', bpm: 152, key: 'E',
-    desc: 'Fast, driving, relentless — get rolling',
-    when: 'Standard fights, fast and kinetic',
-    melody: ['E4','G4','A4','E4','D4','E4','B3','E4','G4','A4','C5','B4','G4','E4','F#4','E4'],
-    bass:   ['E2','A1','B1','E2'],
-    chord:  [['E2','G2','B2'],['A1','C2','E2'],['B1','D2','F#2'],['E2','G2','B2']],
-    percussion: true, purpleTheme: false,
-  },
-  boss: {
-    icon: '🐉', name: 'Boss Fight', bpm: 168, key: 'B',
-    desc: 'Epic, crushing, terrifying — the end boss',
-    when: 'The thing at the end of the hall',
-    melody: ['B3','C4','B3','G3','B3','F3','B3','E3','B3','C4','D4','C4','B3',null,'G3','B3'],
-    bass:   ['B1','E1','F1','B1'],
-    chord:  [['B1','D2','F2'],['C2','E2','G2'],['E1','G1','B1'],['B1','D2','F2']],
-    percussion: true, purpleTheme: false,
-  },
-  wilderness: {
-    icon: '🌲', name: 'Wilderness', bpm: 84, key: 'G',
-    desc: 'Flowing, open, vast — the Greying Wildlands',
-    when: 'Travel, Greying Wildlands, open sky',
-    melody: ['G4','A4','B4','D5','G4','A4','G4','E4','D4','G4','A4','B4','D5','B4','A4','G4'],
-    bass:   ['G2','D2','C2','G2'],
-    chord:  [['G2','B2','D3'],['D2','F#2','A2'],['C2','E2','G2'],['G2','B2','D3']],
-    percussion: false, purpleTheme: false,
-  },
-  kryn: {
-    icon: '🌑', name: 'Xhorhas / Kryn', bpm: 68, key: 'F#',
-    desc: 'Ethereal, alien, Dunamantic — the Dynasty',
-    when: 'Rosohna, Dunamancy, the Dynasty',
-    melody: ['F#3','A3','B3','F#3','E3','F#3','C#4','B3','A3','F#3',null,'E3','F#3','G#3','A3','F#3'],
-    bass:   ['F#1','B1','C#2','F#1'],
-    chord:  [['F#2','A2','C#3'],['B1','D2','F#2'],['C#2','E2','G#2'],['F#2','A2','C#3']],
-    percussion: false, purpleTheme: true,
-  },
-  calamity: {
-    icon: '💥', name: 'The Calamity', bpm: 60, key: 'C',
-    desc: 'Apocalyptic, ancient horror, Eiselcross',
-    when: 'Eiselcross, Aeor ruins, ancient dread',
-    melody: ['C3',null,'Db3',null,'D3','Eb3',null,'F3',null,'Gb3','G3','Ab3',null,'A3','Bb3',null],
-    bass:   ['C1','F#1','C1','Bb0'],
-    chord:  [['C2','Eb2','Gb2'],['F#1','A1','C2'],['Bb1','Db2','E2'],['C2','Eb2','Gb2']],
-    percussion: false, purpleTheme: true,
-  },
-  triumph: {
-    icon: '🏆', name: 'Victory', bpm: 112, key: 'C',
-    desc: 'Bright fanfare — they survived. Barely.',
-    when: 'Session end, major victory',
-    melody: ['C4','E4','G4','C5','B4','G4','A4','F4','G4','E4','C4','E4','G4','B4','C5',null],
-    bass:   ['C2','G2','F2','C2'],
-    chord:  [['C3','E3','G3'],['G2','B2','D3'],['F2','A2','C3'],['C3','E3','G3']],
-    percussion: true, purpleTheme: false,
-  },
-};
-
-let _parts = [], _synths = [], _activeMood = null, _vol = -14;
-
-function stopAll() {
-  _parts.forEach(p => { try { p.stop(); p.dispose(); } catch(_) {} });
-  _synths.forEach(s => { try { s.dispose(); } catch(_) {} });
-  _parts = []; _synths = [];
-  Tone.getTransport().stop();
-  Tone.getTransport().cancel();
-}
-
-async function playMood(key) {
-  await Tone.start();
-  stopAll();
-  const mood = MOODS[key];
-  if (!mood) return;
-  _activeMood = key;
-
-  const vol = new Tone.Volume(_vol).toDestination();
-  const rev = new Tone.Reverb({ decay: mood.bpm < 80 ? 4 : 1.8, wet: 0.28 }).connect(vol);
-  _synths.push(rev);
-
-  Tone.getTransport().bpm.value = mood.bpm;
-
-  // Melody
-  const melSynth = new Tone.Synth({
-    oscillator: { type: mood.bpm < 80 ? 'triangle' : 'sawtooth' },
-    envelope: { attack: 0.04, decay: 0.18, sustain: 0.5, release: 0.7 },
-    volume: -8,
-  }).connect(rev);
-  _synths.push(melSynth);
-  const melPart = new Tone.Sequence((t, n) => {
-    if (n) melSynth.triggerAttackRelease(n, '8n', t);
-  }, mood.melody, '8n');
-  melPart.loop = true;
-  _parts.push(melPart);
-
-  // Bass
-  const bassSynth = new Tone.Synth({
-    oscillator: { type: 'triangle' },
-    envelope: { attack: 0.06, decay: 0.3, sustain: 0.4, release: 0.8 },
-    volume: -4,
-  }).connect(vol);
-  _synths.push(bassSynth);
-  const bassPart = new Tone.Sequence((t, n) => {
-    if (n) bassSynth.triggerAttackRelease(n, '4n', t);
-  }, mood.bass, '4n');
-  bassPart.loop = true;
-  _parts.push(bassPart);
-
-  // Pad chords
-  const padSynth = new Tone.PolySynth(Tone.Synth, {
-    oscillator: { type: 'sine' },
-    envelope: { attack: 0.4, decay: 0.6, sustain: 0.7, release: 1.2 },
-    volume: -14,
-  }).connect(rev);
-  _synths.push(padSynth);
-  const padPart = new Tone.Sequence((t, ch) => {
-    if (ch && ch.length) padSynth.triggerAttackRelease(ch, '2n', t);
-  }, mood.chord, '2n');
-  padPart.loop = true;
-  _parts.push(padPart);
-
-  // Percussion (combat/boss/tavern/victory)
-  if (mood.percussion) {
-    const kick = new Tone.MembraneSynth({ volume: -10 }).connect(vol);
-    const snare = new Tone.NoiseSynth({
-      noise: { type: 'white' },
-      envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 },
-      volume: -16,
-    }).connect(vol);
-    _synths.push(kick, snare);
-    const fast = (key === 'combat' || key === 'boss');
-    const kPat = fast
-      ? ['8n',null,'8n',null,'8n',null,'8n',null]
-      : ['4n',null,null,null,'4n',null,null,null];
-    const kp = new Tone.Sequence((t, h) => { if (h) kick.triggerAttackRelease('C1','8n',t); }, kPat, '8n');
-    kp.loop = true; _parts.push(kp);
-    const sp = new Tone.Sequence((t, h) => { if (h) snare.triggerAttackRelease('8n',t); },
-      [null,null,'4n',null,null,null,'4n',null], '8n');
-    sp.loop = true; _parts.push(sp);
-  }
-
-  _parts.forEach(p => p.start(0));
-  Tone.getTransport().start();
-  updateNowPlaying(mood);
-  updateCards(key);
-}
-
-function updateNowPlaying(mood) {
-  const badge = document.getElementById('now-playing-badge');
-  const label = document.getElementById('now-playing-text');
-  if (mood) {
-    badge.classList.add('active');
-    label.textContent = `${mood.icon}  Now playing: ${mood.name} — ${mood.desc}`;
-  } else {
-    badge.classList.remove('active');
-    label.textContent = 'No music playing — click a mood to start';
-  }
-}
-
-function updateCards(activeKey) {
-  document.querySelectorAll('.mood-card').forEach(c => {
-    const k = c.dataset.mood;
-    c.classList.remove('active', 'active-purple');
-    if (k === activeKey) {
-      c.classList.add(MOODS[k].purpleTheme ? 'active-purple' : 'active');
-    }
-  });
-}
-
-// Build mood cards
-const grid = document.getElementById('mood-grid');
-const tableBody = document.getElementById('music-table-body');
-
-Object.entries(MOODS).forEach(([key, m]) => {
-  // Card
-  const card = document.createElement('div');
-  card.className = 'mood-card';
-  card.dataset.mood = key;
-  card.innerHTML = `
-    <span class="mood-bpm">${m.bpm} bpm</span>
-    <div class="mood-icon">${m.icon}</div>
-    <div class="mood-name">${m.name}</div>
-    <div class="mood-desc">${m.desc}</div>
-    <span class="mood-playing-label">▶ playing</span>
-  `;
-  card.addEventListener('click', async () => {
-    if (_activeMood === key && Tone.getTransport().state === 'started') {
-      stopAll(); _activeMood = null;
-      updateNowPlaying(null); updateCards(null);
-    } else {
-      await playMood(key);
-    }
-  });
-  grid.appendChild(card);
-
-  // Table row
-  const tr = document.createElement('tr');
-  tr.innerHTML = `<td>${m.icon}</td><td>${m.name}</td><td>${m.when}</td><td><span class="bpm-tag">${m.bpm}</span></td>`;
-  tr.style.cursor = 'pointer';
-  tr.addEventListener('click', async () => await playMood(key));
-  tableBody.appendChild(tr);
-});
-
-// Volume
-const volSlider = document.getElementById('volume-slider');
-const volLabel = document.getElementById('volume-val');
-volSlider.addEventListener('input', e => {
-  _vol = parseInt(e.target.value);
-  volLabel.textContent = `${_vol >= 0 ? '+' : ''}${_vol} dB`;
-});
-
-document.getElementById('btn-stop').addEventListener('click', () => {
-  stopAll(); _activeMood = null;
-  updateNowPlaying(null); updateCards(null);
-});
-
-
-// ── Procedural Map Preview ──────────────────────────────────────────────────
-
-const TILE = {
-  WALL:   { color: '#2a1f14', label: 'Wall' },
-  FLOOR:  { color: '#5a3e28', label: 'Floor' },
-  DOOR:   { color: '#8b5a1e', label: 'Door' },
-  WATER:  { color: '#1a3a5a', label: 'Water' },
-  LAVA:   { color: '#6a1a0a', label: 'Lava' },
-  TREES:  { color: '#1a3a14', label: 'Trees' },
-  ROAD:   { color: '#6a5030', label: 'Road' },
-  RUBBLE: { color: '#3a3028', label: 'Rubble' },
-  PILLAR: { color: '#4a3018', label: 'Pillar' },
-  CHEST:  { color: '#c8973c', label: 'Chest' },
-  STAIRS: { color: '#4a5a6a', label: 'Stairs' },
-  TRAP:   { color: '#6a0a0a', label: 'Trap' },
-  GRASS:  { color: '#2a4a1a', label: 'Grass' },
-  DIRT:   { color: '#6a5030', label: 'Dirt' },
-  SNOW:   { color: '#8a9aaa', label: 'Snow' },
-};
-const T = { WALL:0,FLOOR:1,DOOR:2,WATER:3,LAVA:4,TREES:5,ROAD:6,RUBBLE:7,PILLAR:8,CHEST:9,STAIRS:10,TRAP:11,GRASS:12,DIRT:13,SNOW:14 };
-const TCOLORS = Object.values(TILE).map(t => t.color);
-const TS = 12; // tile size px
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const mapEl = document.getElementById('map-canvas');
-const W = 60, H = 30; // grid cells
-
-let mapData = [];
-
-function setSvgSize() {
-  const px = Math.floor(mapEl.parentElement.clientWidth - 48);
-  const cols = Math.min(W, Math.floor(px / TS));
-  mapEl.setAttribute('viewBox', `0 0 ${cols * TS} ${H * TS}`);
-}
-
-function generateDungeon() {
-  const grid = Array.from({length: H}, () => new Array(W).fill(T.WALL));
-  const rooms = [];
-  for (let attempt = 0; attempt < 200; attempt++) {
-    const rw = 4 + Math.floor(Math.random() * 7);
-    const rh = 3 + Math.floor(Math.random() * 5);
-    const rx = 1 + Math.floor(Math.random() * (W - rw - 2));
-    const ry = 1 + Math.floor(Math.random() * (H - rh - 2));
-    let ok = true;
-    for (const r of rooms) {
-      if (rx < r.x+r.w+1 && rx+rw > r.x-1 && ry < r.y+r.h+1 && ry+rh > r.y-1) { ok = false; break; }
-    }
-    if (!ok) continue;
-    for (let y = ry; y < ry+rh; y++) for (let x = rx; x < rx+rw; x++) grid[y][x] = T.FLOOR;
-    rooms.push({x:rx,y:ry,w:rw,h:rh});
-    if (rooms.length >= 12) break;
-  }
-  // Corridors
-  for (let i = 1; i < rooms.length; i++) {
-    const a = rooms[i-1], b = rooms[i];
-    const ax = Math.floor(a.x + a.w/2), ay = Math.floor(a.y + a.h/2);
-    const bx = Math.floor(b.x + b.w/2), by = Math.floor(b.y + b.h/2);
-    let cx = ax, cy = ay;
-    while (cx !== bx) { grid[cy][cx] = T.FLOOR; cx += (bx > cx ? 1 : -1); }
-    while (cy !== by) { grid[cy][cx] = T.FLOOR; cy += (by > cy ? 1 : -1); }
-    // Door at junction
-    grid[ay][bx] = T.DOOR;
-  }
-  // Features
-  rooms.forEach((r, i) => {
-    const cx = Math.floor(r.x + r.w/2), cy = Math.floor(r.y + r.h/2);
-    if (i === 0) { grid[cy][cx] = T.STAIRS; }
-    else if (i === rooms.length-1) { grid[cy][cx] = T.CHEST; }
-    else if (r.w >= 6 && r.h >= 4) {
-      grid[r.y+1][r.x+1] = T.PILLAR;
-      grid[r.y+1][r.x+r.w-2] = T.PILLAR;
-      grid[r.y+r.h-2][r.x+1] = T.PILLAR;
-      grid[r.y+r.h-2][r.x+r.w-2] = T.PILLAR;
-    } else if (Math.random() < .3) { grid[cy][cx] = T.TRAP; }
-  });
-  return grid;
-}
-
-function generateOutdoor(theme) {
-  const grid = Array.from({length: H}, () => new Array(W).fill(theme === 'snow' ? T.SNOW : theme === 'lava' ? T.LAVA : T.GRASS));
-  // Scatter trees/rubble
-  const scatter = theme === 'snow' ? T.RUBBLE : theme === 'lava' ? T.RUBBLE : T.TREES;
-  for (let i = 0; i < 80; i++) {
-    const x = Math.floor(Math.random()*W), y = Math.floor(Math.random()*H);
-    grid[y][x] = scatter;
-  }
-  // River
-  let ry = Math.floor(H * 0.3 + Math.random() * H * 0.4);
-  for (let x = 0; x < W; x++) {
-    grid[Math.max(0,Math.min(H-1, ry))][x] = theme === 'lava' ? T.LAVA : T.WATER;
-    ry += Math.random() < .3 ? (Math.random() < .5 ? 1 : -1) : 0;
-  }
-  // Road
-  let roadY = Math.floor(H/2);
-  for (let x = 0; x < W; x++) {
-    grid[Math.max(0,Math.min(H-1, roadY))][x] = T.ROAD;
-    roadY += Math.random() < .2 ? (Math.random() < .5 ? 1 : -1) : 0;
-  }
-  // Clearings (floor patches)
-  for (let i = 0; i < 3; i++) {
-    const fx = 2 + Math.floor(Math.random()*(W-6)), fy = 2 + Math.floor(Math.random()*(H-6));
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -2; dx <= 2; dx++) {
-      if (fy+dy >= 0 && fy+dy < H && fx+dx >= 0 && fx+dx < W)
-        grid[fy+dy][fx+dx] = T.DIRT;
-    }
-  }
-  return grid;
-}
-
-const MAP_TYPES = [
-  { label: '🏰 Dungeon', fn: () => generateDungeon() },
-  { label: '🌲 Forest', fn: () => generateOutdoor('forest') },
-  { label: '❄️ Eiselcross', fn: () => generateOutdoor('snow') },
-  { label: '🌋 Xhorhas', fn: () => generateOutdoor('lava') },
-];
-
-function renderMap(data) {
-  while (mapEl.firstChild) mapEl.removeChild(mapEl.firstChild);
-  const cols = Math.min(W, Math.floor((mapEl.parentElement.clientWidth - 48) / TS));
-  mapEl.setAttribute('width', cols * TS);
-  mapEl.setAttribute('height', H * TS);
-  mapEl.setAttribute('viewBox', `0 0 ${cols * TS} ${H * TS}`);
-
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < cols; x++) {
-      const t = data[y] && data[y][x] !== undefined ? data[y][x] : T.WALL;
-      const rect = document.createElementNS(SVG_NS, 'rect');
-      rect.setAttribute('x', x * TS);
-      rect.setAttribute('y', y * TS);
-      rect.setAttribute('width', TS);
-      rect.setAttribute('height', TS);
-      rect.setAttribute('fill', TCOLORS[t] || '#2a1f14');
-      mapEl.appendChild(rect);
-    }
-  }
-}
-
-// Build map buttons
-const mapBtns = document.getElementById('map-btns');
-MAP_TYPES.forEach((mt, i) => {
-  const b = document.createElement('button');
-  b.className = 'btn btn-secondary';
-  b.style.fontSize = '13px';
-  b.style.padding = '7px 14px';
-  b.textContent = mt.label;
-  b.addEventListener('click', () => {
-    mapData = mt.fn();
-    renderMap(mapData);
-    mapBtns.querySelectorAll('button').forEach(x => x.style.borderColor = '');
-    b.style.borderColor = 'var(--accent)';
-    b.style.color = 'var(--accent)';
-  });
-  mapBtns.appendChild(b);
-});
-
-// Legend
-const legendEl = document.getElementById('map-legend');
-Object.entries(TILE).slice(0, 8).forEach(([k, t]) => {
-  const item = document.createElement('div');
-  item.className = 'map-legend-item';
-  item.innerHTML = `<div class="map-legend-dot" style="background:${t.color}"></div><span>${t.label}</span>`;
-  legendEl.appendChild(item);
-});
-
-// Initial map
-mapData = generateDungeon();
-renderMap(mapData);
-mapBtns.querySelector('button').style.borderColor = 'var(--accent)';
-mapBtns.querySelector('button').style.color = 'var(--accent)';
-</script>
-
+<script src="js/data.js"></script>
+<script src="js/gen.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
