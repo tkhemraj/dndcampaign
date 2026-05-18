@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>D&D Campaign Generator</title>
+  <link rel="stylesheet" href="/static/styles.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+</head>
+<body>
+  <nav id="sidebar">
+    <div id="logo">⚔ Campaign<br><span>Generator</span></div>
+    <div id="campaign-select-wrap">
+      <select id="campaign-select"><option value="">— Select Campaign —</option></select>
+      <button id="btn-new-campaign">+ New</button>
+    </div>
+    <ul id="nav-links">
+      <li data-view="dashboard"  class="active">🏰 Dashboard</li>
+      <li data-view="maps">🗺 Maps</li>
+      <li data-view="npcs">👥 NPCs</li>
+      <li data-view="quests">📜 Quests</li>
+      <li data-view="encounters">⚔ Encounters</li>
+      <li data-view="lore">📖 Lore</li>
+      <li data-view="music">🎵 Music</li>
+    </ul>
+    <div id="music-mini">
+      <div id="music-mini-label">♪ —</div>
+      <button id="btn-music-toggle">▶</button>
+    </div>
+  </nav>
+
+  <main id="content">
+    <!-- Views injected by JS -->
+  </main>
+
+  <!-- Modal -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal">
+      <button id="modal-close">✕</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/views/dashboard.js"></script>
+  <script src="/static/views/maps.js"></script>
+  <script src="/static/views/npcs.js"></script>
+  <script src="/static/views/quests.js"></script>
+  <script src="/static/views/encounters.js"></script>
+  <script src="/static/views/lore.js"></script>
+  <script src="/static/views/music.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
