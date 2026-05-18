@@ -101,12 +101,3 @@ and/or Critical Role, LLC is not permitted.
 Music synthesis powered by **Tone.js**, copyright © Yotam Mann.
 Released under the MIT License.
 https://tonejs.github.io/
-
----
-
-## Chart.js (AVD GPU Monitor)
-
-The AVD GPU Monitor companion project uses **Chart.js**,
-copyright © 2014-2024 Chart.js Contributors.
-Released under the MIT License.
-https://www.chartjs.org/
