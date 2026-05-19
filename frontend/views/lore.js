@@ -82,10 +82,12 @@ function openLoreEdit(e, isNew, onSave) {
     else await api('/api/lore/', 'POST', payload);
     closeModal(); await onSave();
   });
-  if (e.id) document.getElementById('btn-del-l').addEventListener('click', async () => {
-    if (!confirm('Delete?')) return;
-    await api(`/api/lore/${e.id}`, 'DELETE');
-    closeModal(); await onSave();
+  if (e.id) document.getElementById('btn-del-l').addEventListener('click', () => {
+    confirmModal(`Delete "${e.title}"?`, async () => {
+      await api(`/api/lore/${e.id}`, 'DELETE');
+      closeModal(); await onSave();
+      toast('Entry deleted', 'info');
+    });
   });
 }
 

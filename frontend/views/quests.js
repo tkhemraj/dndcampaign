@@ -127,12 +127,15 @@ function openQuestEdit(q, isNew, onSave) {
     if (q.id) await api(`/api/quests/${q.id}`, 'PUT', payload);
     else await api('/api/quests/', 'POST', payload);
     closeModal(); await onSave();
+    toast(q.id ? 'Quest saved' : 'Quest created', 'success');
   });
   if (q.id) {
-    document.getElementById('btn-del-q').addEventListener('click', async () => {
-      if (!confirm('Delete quest?')) return;
-      await api(`/api/quests/${q.id}`, 'DELETE');
-      closeModal(); await onSave();
+    document.getElementById('btn-del-q').addEventListener('click', () => {
+      confirmModal(`Delete "${q.title}"?`, async () => {
+        await api(`/api/quests/${q.id}`, 'DELETE');
+        closeModal(); await onSave();
+        toast('Quest deleted', 'info');
+      });
     });
   }
 }

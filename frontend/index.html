@@ -37,6 +37,17 @@
 
   <div id="toast-container"></div>
 
+  <!-- Confirm dialog (stacks above main modal) -->
+  <div id="confirm-overlay" class="hidden">
+    <div id="confirm-dialog">
+      <p id="confirm-msg"></p>
+      <div id="confirm-actions">
+        <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-danger"    id="confirm-ok">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal -->
   <div id="modal-overlay" class="hidden">
     <div id="modal">

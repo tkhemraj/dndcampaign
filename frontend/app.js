@@ -31,6 +31,147 @@ window.openModal  = () => document.getElementById('modal-overlay').classList.rem
 window.closeModal = () => document.getElementById('modal-overlay').classList.add('hidden');
 document.getElementById('modal-close').addEventListener('click', closeModal);
 document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target === document.getElementById('modal-overlay')) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); document.getElementById('confirm-overlay').classList.add('hidden'); } });
+
+// ── Confirm dialog ──────────────────────────────────────────────────────────
+window.confirmModal = function(msg, onConfirm, dangerous = true) {
+  const overlay = document.getElementById('confirm-overlay');
+  document.getElementById('confirm-msg').textContent = msg;
+
+  const oldOk = document.getElementById('confirm-ok');
+  const newOk = oldOk.cloneNode(true);
+  newOk.className = `btn ${dangerous ? 'btn-danger' : 'btn-primary'} btn-sm`;
+  newOk.textContent = dangerous ? 'Delete' : 'Confirm';
+  oldOk.parentNode.replaceChild(newOk, oldOk);
+
+  const oldCancel = document.getElementById('confirm-cancel');
+  const newCancel = oldCancel.cloneNode(true);
+  oldCancel.parentNode.replaceChild(newCancel, oldCancel);
+
+  const close = () => overlay.classList.add('hidden');
+  document.getElementById('confirm-ok').addEventListener('click',     () => { close(); onConfirm(); }, { once: true });
+  document.getElementById('confirm-cancel').addEventListener('click', close, { once: true });
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); }, { once: true });
+  overlay.classList.remove('hidden');
+};
+
+// ── Input modal (replaces all prompt() calls) ───────────────────────────────
+window.inputModal = function(title, fields, onSubmit, submitLabel = 'Save') {
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:20px">${title}</h2>
+    ${fields.map(f => {
+      if (f.type === 'select') return `
+        <div class="form-group"><label>${f.label}</label>
+        <select id="im-${f.id}">${(f.options || []).map(o => {
+          const val = typeof o === 'object' ? o.value : o;
+          const lbl = typeof o === 'object' ? o.label : o;
+          return `<option value="${val}"${f.value === val ? ' selected' : ''}>${lbl}</option>`;
+        }).join('')}</select></div>`;
+      return `
+        <div class="form-group"><label>${f.label}</label>
+        <input id="im-${f.id}" type="${f.type || 'text'}" value="${f.value ?? ''}"
+          placeholder="${f.placeholder || ''}"${f.min !== undefined ? ` min="${f.min}"` : ''}/></div>`;
+    }).join('')}
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-primary" id="im-submit">${submitLabel}</button>
+      <button class="btn btn-secondary" id="im-cancel">Cancel</button>
+    </div>`;
+  openModal();
+
+  const submit = () => {
+    const result = {};
+    fields.forEach(f => {
+      const el = document.getElementById(`im-${f.id}`);
+      result[f.id] = f.type === 'number' ? (parseInt(el.value) || 0) : (el.value || '');
+    });
+    closeModal();
+    onSubmit(result);
+  };
+
+  document.getElementById('im-submit').addEventListener('click', submit);
+  document.getElementById('im-cancel').addEventListener('click', closeModal);
+  const textInputs = fields.filter(f => f.type !== 'select');
+  if (textInputs.length) {
+    document.getElementById(`im-${textInputs[textInputs.length - 1].id}`)
+      ?.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  }
+  setTimeout(() => document.getElementById(`im-${fields[0].id}`)?.focus(), 60);
+};
+
+// ── Condition picker modal ──────────────────────────────────────────────────
+const _ALL_CONDITIONS = ['Blinded','Charmed','Deafened','Frightened','Grappled',
+  'Incapacitated','Invisible','Paralyzed','Petrified','Poisoned','Prone',
+  'Restrained','Stunned','Unconscious'];
+
+window.conditionPickerModal = function(current, onSave) {
+  const active = new Set(current);
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:16px">Conditions</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Click to toggle. Active conditions are highlighted.</p>
+    <div class="cond-chips">
+      ${_ALL_CONDITIONS.map(c => `
+        <div class="cond-chip${active.has(c) ? ' active' : ''}" data-cond="${c}">${c}</div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" id="cond-save">Apply</button>
+      <button class="btn btn-secondary btn-sm" id="cond-clear">Clear All</button>
+      <button class="btn btn-secondary" id="cond-cancel" style="margin-left:auto">Cancel</button>
+    </div>`;
+  openModal();
+
+  body.querySelectorAll('.cond-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const c = chip.dataset.cond;
+      if (active.has(c)) { active.delete(c); chip.classList.remove('active'); }
+      else               { active.add(c);    chip.classList.add('active'); }
+    });
+  });
+  document.getElementById('cond-clear').addEventListener('click', () => {
+    active.clear();
+    body.querySelectorAll('.cond-chip').forEach(c => c.classList.remove('active'));
+  });
+  document.getElementById('cond-save').addEventListener('click', () => { closeModal(); onSave([...active]); });
+  document.getElementById('cond-cancel').addEventListener('click', closeModal);
+};
+
+// ── HP edit modal ───────────────────────────────────────────────────────────
+window.hpModal = function(name, currentHp, maxHp, onApply) {
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:4px">${name}</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:18px">${currentHp} / ${maxHp} HP</p>
+    <div class="form-group">
+      <label>Amount — positive to heal, negative to damage</label>
+      <input id="hp-delta" type="number" value="" placeholder="e.g. -8 or 5"/>
+    </div>
+    <div class="hp-presets">
+      ${[-20,-10,-5,-1].map(n=>`<button class="btn hp-preset dmg" data-v="${n}">${n}</button>`).join('')}
+      ${[1,5,10,20].map(n=>`<button class="btn hp-preset heal" data-v="${n}">+${n}</button>`).join('')}
+      <button class="btn hp-preset heal" data-v="${maxHp - currentHp}" style="margin-left:auto">Full Heal</button>
+      <button class="btn hp-preset dmg"  data-v="${-currentHp}">Kill</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-primary" id="hp-apply">Apply</button>
+      <button class="btn btn-secondary" id="hp-cancel">Cancel</button>
+    </div>`;
+  openModal();
+
+  const input = document.getElementById('hp-delta');
+  body.querySelectorAll('.hp-preset').forEach(btn => {
+    btn.addEventListener('click', () => { input.value = btn.dataset.v; input.focus(); });
+  });
+
+  const apply = () => {
+    const delta = parseInt(input.value);
+    if (!isNaN(delta) && delta !== 0) { closeModal(); onApply(delta); }
+  };
+  document.getElementById('hp-apply').addEventListener('click', apply);
+  document.getElementById('hp-cancel').addEventListener('click', closeModal);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') apply(); });
+  setTimeout(() => input.focus(), 60);
+};
 
 // ── Router ──────────────────────────────────────────────────────────────────
 const VIEWS = {
@@ -107,13 +248,15 @@ window.showNewCampaignModal = function(existing = null) {
     navigate(_activeView);
   });
   if (existing) {
-    document.getElementById('btn-del-c').addEventListener('click', async () => {
-      if (!confirm(`Delete "${existing.name}" and all its content?`)) return;
-      await api(`/api/campaigns/${existing.id}`, 'DELETE');
-      _activeCampaignId = null;
-      closeModal();
-      await loadCampaigns();
-      navigate('dashboard');
+    document.getElementById('btn-del-c').addEventListener('click', () => {
+      confirmModal(`Delete "${existing.name}" and all its content? This cannot be undone.`, async () => {
+        await api(`/api/campaigns/${existing.id}`, 'DELETE');
+        _activeCampaignId = null;
+        closeModal();
+        await loadCampaigns();
+        navigate('dashboard');
+        toast(`Campaign deleted`, 'info');
+      });
     });
   }
 };

@@ -592,3 +592,49 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: 11px; background: var(--surface2); border: 1px solid var(--border);
   color: var(--muted);
 }
+
+/* ── Confirm dialog ───────────────────────────────────────────────────────── */
+#confirm-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  z-index: 150; display: flex; align-items: center; justify-content: center;
+}
+#confirm-dialog {
+  background: var(--surface); border: 1px solid var(--border-hi);
+  border-radius: var(--radius-lg); padding: 24px 28px;
+  width: 380px; max-width: 92vw;
+  box-shadow: var(--shadow-lg);
+  animation: modalIn 0.15s ease;
+}
+#confirm-msg {
+  color: var(--text); font-size: 14px; line-height: 1.55;
+  margin-bottom: 20px;
+}
+#confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Condition chip picker ────────────────────────────────────────────────── */
+.cond-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
+.cond-chip {
+  padding: 5px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--muted);
+  transition: all var(--transition); user-select: none;
+}
+.cond-chip:hover  { border-color: var(--border-hi); color: var(--text); }
+.cond-chip.active {
+  background: rgba(200,124,60,0.15); color: var(--warn);
+  border-color: rgba(200,124,60,0.4);
+  box-shadow: 0 0 8px rgba(200,124,60,0.12);
+}
+
+/* ── HP quick-edit modal ──────────────────────────────────────────────────── */
+.hp-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.hp-preset  {
+  padding: 4px 10px; border-radius: var(--radius-sm); font-size: 12px;
+  font-weight: 600; cursor: pointer; font-family: inherit; border: none;
+  transition: all var(--transition);
+}
+.hp-preset.heal  { background: var(--ok-dim); color: var(--ok); }
+.hp-preset.dmg   { background: var(--crit-dim); color: var(--crit); }
+.hp-preset.heal:hover { background: rgba(90,158,90,0.22); }
+.hp-preset.dmg:hover  { background: rgba(200,64,64,0.22); }

@@ -74,10 +74,12 @@ window.renderNpcsView = async function(campaignId) {
     const npc = await api(`/api/npcs/${id}`);
     showNpcModal(npc, false, async () => { await loadList(); });
   };
-  window.deleteNpc = async (id, cb) => {
-    if (!confirm('Delete NPC?')) return;
-    await api(`/api/npcs/${id}`, 'DELETE');
-    await loadList();
+  window.deleteNpc = async (id) => {
+    confirmModal('Delete this NPC?', async () => {
+      await api(`/api/npcs/${id}`, 'DELETE');
+      await loadList();
+      toast('NPC deleted', 'info');
+    });
   };
 };
 
@@ -132,13 +134,16 @@ function showNpcModal(npc, isNew, onSave) {
     else await api('/api/npcs/', 'POST', payload);
     closeModal();
     await onSave();
+    toast(npc.id ? 'NPC saved' : 'NPC created', 'success');
   });
 
   if (npc.id) {
-    document.getElementById('btn-del-npc').addEventListener('click', async () => {
-      if (!confirm('Delete NPC?')) return;
-      await api(`/api/npcs/${npc.id}`, 'DELETE');
-      closeModal(); await onSave();
+    document.getElementById('btn-del-npc').addEventListener('click', () => {
+      confirmModal(`Delete ${npc.name}?`, async () => {
+        await api(`/api/npcs/${npc.id}`, 'DELETE');
+        closeModal(); await onSave();
+        toast('NPC deleted', 'info');
+      });
     });
   }
 }
