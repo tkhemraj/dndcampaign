@@ -23,6 +23,18 @@ const FACTIONS = [
   { name:'Clovis Concord', region:'Menagerie Coast', alignment:'Lawful Neutral',
     desc:'Eight city-states forming a merchant republic that controls trade along the Menagerie Coast.',
     hooks:['Escort a trade delegation through Revelry-controlled waters','Investigate Revelry smuggling operating out of Port Damali\'s lower docks','A Concord inspector has taken a bribe and knows too much about too many people','Recover a sunken merchant vessel before the Revelry salvages the cargo','Negotiate a back-channel trade agreement with a Xhorhasian broker'] },
+  { name:'Tribes of Shadycreek Run', region:'Greying Wildlands', alignment:'Chaotic Neutral',
+    desc:'A loose coalition of criminal gangs — the Uttolot family, the Mardoon family, the Jagentoth family, and the Trebain gang — splitting smuggling routes through the Savalirwood.',
+    hooks:['A turf war between the Uttolot and Mardoon families is about to turn bloody in Shadycreek','A shipment of Myriad goods is changing hands in the Wildlands — both parties would rather not be seen','A caravan needs escorting through Shadycreek without paying the toll — or the toll needs paying without anyone knowing who paid','A tribe enforcer has taken a hostage to resolve a debt dispute','Someone in the Run has a Cobalt Soul monk. The Soul can\'t officially respond.'] },
+  { name:'Uthodurn', region:'Greying Wildlands', alignment:'Lawful Neutral',
+    desc:'A rare joint city of elves and dwarves nestled in a mountain hollow, surviving in isolation from the wars that reshape the rest of Wildemount.',
+    hooks:['A Uthodurn expedition to Eiselcross hasn\'t reported back in three weeks','Pale elves guard a secret about the Savalirwood they\'re willing to fight over','A young dwarf craftsman has stolen techniques that belong to the city and fled south','The city council needs a neutral party to investigate corruption within its own ranks','Something from the Wildlands has been testing the city\'s outer defenses each night at exactly midnight'] },
+  { name:'Volstrucker', region:'Western Wynandir', alignment:'Lawful Evil',
+    desc:'The Cerberus Assembly\'s secret enforcement arm — psychically conditioned assassins and spies known as Scourgers, deployed to silence threats to the Assembly and the Empire.',
+    hooks:['A Scourger has broken their conditioning and is desperately trying to escape the Assembly\'s reach','The Volstrucker have been sent after someone who helped the party — they\'re next on the list','Retrieve a target "for questioning" — the Assembly doesn\'t explain what that means','A Scourger child trainee has begged for sanctuary and the Assembly wants them back','Evidence of Volstrucker involvement in a massacre needs to reach the Cobalt Soul before the Assembly buries it'] },
+  { name:'Tribes of the Iothia Moorland', region:'Xhorhas', alignment:'Chaotic Neutral',
+    desc:'Nomadic orc and goblinoid clans — including the war band of Ogre Lord Sunbreaker Olara — surviving in the wastes between Dynasty control and the Betrayer\'s Reach.',
+    hooks:['A clan chieftain is willing to parley, but only with outsiders who have proven themselves in the tribal challenges','Rival clans are being goaded into conflict by a third party; someone benefits from the chaos','A shamanic elder has dreamed of the party and sends a runner with a cryptic message','Dynasty expansion is forcing tribes from their ancestral territory; violence is building','Something is poisoning the watering holes of the Iothia Moorland. The clans blame the Dynasty. They\'re wrong.'] },
 ];
 
 const REGIONS = {
@@ -50,6 +62,21 @@ const REGIONS = {
     locations:['Allowak\'s Sanctuary','Syrinlya','Ruins of Aeor','Foren tundra','Mutalos','Entrance of Salsvault'],
     terrain:['arctic tundra','blizzard wastes','crumbling Aeor ruins','ice caves','Assembly research camp','frozen crash site'],
     encounter_flavour:['A Cerberus Assembly expedition is here for something specific and won\'t share','Ruin fragments emit unstable magical energy in pulses','Something from the Abyss has thawed out and is very hungry','The ice here speaks in a language you almost recognise','An Assembly mage is alone, terrified, and won\'t explain what happened to their team'],
+  },
+  'Eastern Wynandir': {
+    locations:['Bazzoxan','Ashguard Garrison','Pride\'s Call','Iothia Moorland','Betrayer\'s Rise','Deepriver Mine'],
+    terrain:['war-torn border wastes','shattered fortifications','blighted badlands','deep ravine gorges','scorched battlefields','Betrayer God ruins'],
+    encounter_flavour:['The scarred earth still smokes from battles fought decades ago','Undead from old battlefields shamble at the edges of the light','A lone Dynasty soldier guards a post no one else knows still exists','An ancient seal is cracking — something below is responding to the noise above','Scavengers pick over a recent skirmish site while survivors watch from the shadows'],
+  },
+  'Issylra': {
+    locations:['Vasselheim','Othanzia','Pyrah','Terrah','Marquet trade road','Vesper Timberlands'],
+    terrain:['ancient sacred mountain','volcanic highland','deep primeval forest','vast plains of grass','coastal cliffside city','high desert plateau'],
+    encounter_flavour:['The Slayer\'s Take guild board has a posting that matches something the party saw last week','Temple district guards are questioning visitors about a theft from the Platinum Sanctuary','An Othanzan elder speaks prophecy to a deaf crowd, but one line is directed at you specifically','The roads between city-states are patrolled, but something is taking the patrols','A Pyrah fire aasimar has a vision about the party and is awkwardly trying to act normal about it'],
+  },
+  'The Savalirwood': {
+    locations:['Shadycreek Run','Shiver Keep','Boroftkrah','Paleback Village','Wraithroot Grove','Veil Hollow'],
+    terrain:['ancient haunted forest','tangled silver roots','fey-touched clearings','ghostwood thickets','twisted menhir circles','fog-locked trails'],
+    encounter_flavour:['The trees here grow in shapes that weren\'t natural — they\'re arranged','Wisps circle a clearing that no local will enter after dark','A fey creature offers to guide you through the wood for a price they won\'t name yet','Something is watching from exactly the height a very tall humanoid would watch from','The path you took into this grove no longer exists when you turn around'],
   },
 };
 
@@ -82,6 +109,26 @@ const NAMES = {
     first_f:['Nott','Jester','Marian','Leiona','Priya','Reani','Sybil','Tova','Veth','Cali','Yeza','Ophelia'],
     last:['Stone','Lavorre','Brenatto','Orlandstriker','Falsworth','Brightwater','Saltbreeze','Wavecrest','Tidemarsh','Coralrun','Mercer','Seasong'],
   },
+  Elvish:{
+    first_m:['Aerindel','Caelindra','Eriadiel','Faelan','Haelindor','Ilithyn','Lorindel','Maevar','Naeryn','Orisandel','Pyrindel','Saevithar'],
+    first_f:['Aerith','Caelindra','Elowen','Faelindra','Haelyn','Ilthariel','Liriel','Maerith','Naerindra','Orindel','Pyriel','Sariel'],
+    last:['Moonwhisper','Starweave','Dawnveil','Silverleaf','Nightbloom','Dreambranch','Celestine','Twilighthold','Ironbark','Thornmantle','Sunspire','Veilsong'],
+  },
+  Dwarven:{
+    first_m:['Aldric','Brom','Dorgnar','Forric','Gundrun','Harnak','Kolgrim','Mordak','Norvik','Orvyn','Pergram','Skarrig'],
+    first_f:['Aelda','Brynna','Dura','Forga','Gundra','Hilda','Kira','Morda','Norva','Osla','Petra','Sigra'],
+    last:['Stonehammer','Ironforge','Deepdelve','Cleftrock','Grudgebearer','Thunderfist','Coppercloak','Boldbrew','Axebreak','Gemwright','Cragmantle','Kegbreaker'],
+  },
+  Orcish:{
+    first_m:['Grak','Hrog','Kugh','Muzgash','Orgrul','Rhogar','Skarg','Thrug','Urgal','Vorak','Wrogg','Zurgak'],
+    first_f:['Agra','Bruga','Droga','Gorka','Huga','Kruga','Morga','Nurga','Orga','Rogra','Thruga','Urgra'],
+    last:['Bonecrusher','Bloodtusk','Skullrender','Ironhide','Warscream','Doomcaller','Fleshripper','Grimjaw','Hellbrand','Ravager','Stonecleave','Thornfist'],
+  },
+  Goblin:{
+    first_m:['Blek','Drax','Fink','Grix','Ignix','Krix','Nixkin','Plix','Razzle','Skrix','Trix','Wex'],
+    first_f:['Brixie','Dazzle','Frix','Giggle','Ixi','Krixie','Nix','Pixie','Razzle','Snap','Trixie','Wrix'],
+    last:['Rotbite','Snagtooth','Muckpaw','Grimsnitch','Filchbag','Sneakstab','Dirtcrumb','Blightear','Fetchgrub','Scurryfang','Mudlick','Pickpocket'],
+  },
 };
 
 const DEITIES = [
@@ -108,6 +155,36 @@ const DEITIES = [
   {name:'Zehir',domain:'Darkness, Poison, Serpents',alignment:'CE',type:'Betrayer'},
 ];
 
+// Key canonical NPCs from Wildemount / Critical Role (public knowledge)
+const NPCS = [
+  {name:'Bright Queen Leylas Kryn',role:'Ruler of the Kryn Dynasty',faction:'Kryn Dynasty',alignment:'LN',desc:'Ancient and wise leader who has lived through multiple consecutions. Guided by the Luxon\'s doctrine. Seeks peace but will not yield Xhorhas. Has seen the Calamity\'s echoes in her past lives.'},
+  {name:'Ikithon (Trent Ikithon)',role:'Archmage of Civil Influence',faction:'Cerberus Assembly',alignment:'LE',desc:'Head of the Volstrucker program and Archmage of Civil Influence. Psychological torturer who conditions operatives from childhood. Obsessed with Exandrian dominance through magic.'},
+  {name:'Essek Thelyss',role:'Shadowhand of the Dynasty',faction:'Kryn Dynasty',alignment:'CN',desc:'Brilliant dunamancer and adviser to the Bright Queen. Cool, calculating, and deeply lonely. Harbors a secret that could unravel the war. Graviturgy specialist.'},
+  {name:'King Bertrand Dwendal',role:'King of the Dwendalian Empire',faction:'Dwendalian Empire',alignment:'LN',desc:'Aging monarch who rules through fear and bureaucracy. Distrustful of magic he doesn\'t control. Has sacrificed peace for power so many times he\'s forgotten what the alternative feels like.'},
+  {name:'Arbiter Brom Goldhand',role:'Speaker of the Cobalt Soul',faction:'Cobalt Soul',alignment:'LG',desc:'Head archivist of the Rexxentrum chapter. Quiet, methodical, unshakeable. Has documentation on nearly every act of Imperial corruption for the past thirty years.'},
+  {name:'The Gentleman',role:'Crime Lord of the Underbelly',faction:'Independent (Myriad-adjacent)',alignment:'N',desc:'A half-elven crime lord operating out of Zadash\'s sewers. Runs smuggling, information brokering, and discreet elimination. Well-read, well-mannered, and utterly ruthless when crossed.'},
+  {name:'Oremid Hass',role:'Voice of the Talons',faction:'Cerberus Assembly',alignment:'LN',desc:'Earth Genasi archmage who commands the Assembly\'s military applications division. Stone-steady and strategic. Rumored to have a conscience the Assembly never managed to fully remove.'},
+  {name:'Vence Nuthaleus',role:'Volstrucker Handler',faction:'Cerberus Assembly / Volstrucker',alignment:'LE',desc:'Unassuming but dangerous Assembly operative who manages Scourger deployment from the capital. Fastidious record keeper. His files would bring down the Assembly — if anyone could find them.'},
+  {name:'Sunbreaker Olara',role:'War Chief',faction:'Tribes of Iothia Moorland',alignment:'CN',desc:'Half-orc warlord commanding a coalition of Xhorhasian nomadic clans. A tactical genius who respects strength and despises dishonesty. Has kept her people alive through wars that killed civilizations.'},
+  {name:'Ludinus Da\'leth',role:'Archmage of Domestic Protections',faction:'Cerberus Assembly',alignment:'LE',desc:'The most ancient of the Assembly archmages. Cold, precise, and of a generation that remembers when the gods walked the earth. His true agenda operates on a timescale that makes other people\'s schemes look short-sighted.'},
+  {name:'Allura Vysoren',role:'Archmage & Vox Machina Ally',faction:'Independent / Emon',alignment:'NG',desc:'Legendary archmage and longtime ally of Vox Machina. Warm but formidable. The kind of powerful that only shows when it needs to.'},
+  {name:'Yudane',role:'Clan Elder',faction:'Tribes of Xhorhas',alignment:'N',desc:'Elder shaman of a displaced Xhorhasian clan. Speaks to the soil. Knows which ruins are sacred and which are sealed for a reason. Rarely talks, never wastes words.'},
+];
+
+// Wildemount / Exandrian historical events
+const HISTORICAL_EVENTS = [
+  {name:'The Founding',era:'Ancient',desc:'After defeating the Primordials, the gods shaped Exandria and seeded it with mortal life. The Prime Deities and Betrayer Gods alike walked among their creations, building the first civilizations and planting seeds of conflict.'},
+  {name:'The Calamity',era:'Ancient (~800 years before present)',desc:'The Betrayer Gods were released from their divine prisons and unleashed apocalyptic destruction on Exandria. Prime and Betrayer Gods fought directly. Entire civilizations were erased. The Betrayers were defeated but only after the world was nearly destroyed.'},
+  {name:'The Divergence',era:'Ancient (end of Calamity)',desc:'The gods agreed to withdraw from direct intervention in the mortal world. They sealed themselves beyond the Divine Gate to prevent another Calamity-level conflict. Mortals were left to rebuild alone. Divine power could now only flow through clerics, paladins, and prayer.'},
+  {name:'The Founding of Aeor',era:'Middle Antiquity',desc:'A great flying city of mages and scholars who sought to transcend the gods and achieve immortality through pure arcane power. The gods took notice and struck it from the sky. Aeor crashed into what is now Eiselcross, shattering on impact and preserving its catastrophic research beneath the ice.'},
+  {name:'The Rise of the Kryn Dynasty',era:'~1000 years before present',desc:'The drow of the Underdark, guided by the Luxon and the doctrine of consecution, emerged and claimed Xhorhas. They built Rosohna (formerly Ghor Dranas) as their capital and established a civilization based on the cycle of rebirth through the Luxon\'s light.'},
+  {name:'The Dwendalian Unification',era:'~400 years before present',desc:'A series of wars and political marriages consolidated the warring city-states of Western Wynandir under the Dwendalian crown. The Cobalt Soul archives from this era are heavily redacted. Several towns simply disappear from the record.'},
+  {name:'The Battle of Bladegarden',era:'Recent (ongoing war)',desc:'One of the most costly border engagements of the Wynandir war. The Dwendalian Empire and Kryn Dynasty clashed for control of the strategic garrison. Heavy casualties on both sides. The Empire publicly claims victory; the ruins tell a more complicated story.'},
+  {name:'The Harvest Close Festival',era:'Recent (yearly)',desc:'A Dwendalian holiday celebrating the harvest. In practice an opportunity for the crown to demonstrate Imperial largesse and suppress dissent through bread and spectacle. The Myriad moves more product during Harvest Close than any other time of year.'},
+  {name:'The Ioun Incident',era:'Recent',desc:'The goddess Ioun was gravely wounded during a conflict with Vecna and has been recovering ever since. The Cobalt Soul, her devotees, refuses to confirm the extent of her diminishment. The implications for knowledge, wisdom, and foresight across Exandria remain unsettling.'},
+  {name:'The Divergence\'s End (prophecy)',era:'Future / Rumor',desc:'Fringe theological texts suggest the Divine Gate may not be permanent — that sufficient catastrophe, or a sufficiently motivated mortal, could force the gods back through the veil. Most scholars dismiss this. A few have stopped sleeping.'},
+];
+
 const PLOT_SEEDS = [
   'A Dunamancy artefact from Aeor has resurfaced in a pawn shop in Zadash — both the Assembly and the Dynasty want it, and neither knows the other is looking.',
   'The Myriad is moving something through the city in false-bottomed merchant carts. The Cobalt Soul knows something is happening but not what. The party is caught between them.',
@@ -126,6 +203,25 @@ const PLOT_SEEDS = [
   'Three Clovis Concord ships vanished on the same trade route in the same week. The sole survivor of the last one speaks of a figure made entirely of sea-glass.',
   'A Ravenite community outside Asarius has been massacred. The attackers left Dynasty symbols. But the technique is Imperial. Forensics and politics are about to collide.',
   'The party finds a sealed vault beneath a ruined city. Inside: a letter addressed to each of them by name, dated two hundred years ago, and sealed with their own personal symbols.',
+  // Additional plot seeds
+  'An Aeor artifact activates when all party members touch it simultaneously. It transmits a memory — not a vision, a memory — of a woman who looks like one of the party members, making a terrible choice beneath the ice.',
+  'Three Cobalt Soul monks are dead, each with a different official cause of death, each having investigated the same unrelated-seeming topic. The Soul doesn\'t know they were all looking at the same thing.',
+  'A town has stopped aging. Literally. The children are still children. The old have not gotten older. No one in the town seems to have noticed. The crops are wrong — they\'re ripe but they\'ve been ripe for three months.',
+  'The Gentleman needs something retrieved from his own safehouse. He won\'t explain why he can\'t go himself. The safehouse is in Zadash. So is his body — he\'s been dead for two days but keeps sending messages.',
+  'Sunbreaker Olara has captured an Imperial officer who claims to have information that would end the war. She doesn\'t trust the information. She doesn\'t trust the party. She trusts them slightly more than everyone else.',
+  'A consecution has worked — too well. A newly reborn Umavi has awoken with memories that clearly belong to someone else, someone who shouldn\'t have been in the cycle, someone who died before the Kryn Dynasty existed.',
+  'Someone is selling authentic-looking Cobalt Soul certifications for dead people. The documents pass every test. A dead Cobalt Soul archivist\'s seal is involved. The archivist died in a fire. The fire was arson.',
+  'The Soltryce Academy has sent a letter to every graduate: return for a mandatory reunion or lose your certification. Half the graduates who have returned have not been heard from since. The other half are making excuses.',
+  'A tunnel discovered beneath Rexxentrum connects to a set of catacombs that the city\'s own records say don\'t exist. The catacombs have been recently maintained. The furnishings are Imperial. The seals on the doors are older than the Empire.',
+  'A child in a Menagerie Coast village can describe, in vivid detail, the fall of Aeor — from inside it. She\'s eight years old. She doesn\'t know what Aeor is.',
+  'Vox Machina\'s old safe house in Tal\'Dorei has a magical address — and someone has started sending letters to it again. The party is the closest thing to a forwarding address.',
+  'Ikithon\'s records of the Volstrucker program have disappeared from the Assembly\'s archives. Not destroyed — moved. Someone inside the Assembly is protecting them. Or using them.',
+  'The Wildmother\'s druids report that a section of the Savalirwood has stopped reacting to magic entirely — as if the Weave itself has been severed there. In the center of the dead zone: a perfectly preserved Aeoran research station.',
+  'A Clovis Concord census taker has discovered a ship that\'s been filing port paperwork for twenty years — but the ship appears nowhere in any manifest, never trades, never takes on crew. It\'s always at a different dock in the morning.',
+  'Three separate assassination attempts have failed on the same target in the same week. The target doesn\'t know why anyone wants them dead. The assassins don\'t know they were sent by different clients. One of the clients is dead.',
+  'During a storm on the Menagerie Coast, an unmapped island briefly appears. A lighthouse on it is lit. The light source hasn\'t been explained. The island isn\'t there the next morning.',
+  'A letter arrives for the party: "I know what you did before you were who you think you are. Meet me at the place you burned three years ago. Come alone. Come armed. Come soon."',
+  'The Bright Queen has sent an emissary to the party directly — not through official channels, not through the Shadowhand. The message bypassed every known Dynasty protocol. The emissary doesn\'t know they\'re carrying it.',
 ];
 
 const PERSONALITIES = [
@@ -144,6 +240,41 @@ const PERSONALITIES = [
   'laughs inappropriately at danger and apologizes for it afterward',
   'collects small stones from everywhere they go and can name every one',
   'refuses to eat anything they didn\'t personally see prepared',
+  // Additional personalities
+  'apologizes to furniture they bump into — and seems to mean it',
+  'has a detailed and strongly held opinion about every innkeeper they\'ve ever met',
+  'answers questions with a number scale from 1 to 10 before giving the actual answer',
+  'performs a small ritual before entering any building that might have been a church',
+  'refers to their former employer in the present tense even though everyone knows they\'re dead',
+  'gives every horse, mule, and cart animal a name within thirty seconds of seeing it',
+  'has an extremely specific and non-transferable skill no situation has yet required',
+  'absolutely will not say the names of any Betrayer God aloud, not even Gruumsh',
+  'writes everything important in code — including shopping lists',
+  'has memorized the layout of every city they\'ve visited and corrects maps out loud',
+  'pretends not to speak the local language until the situation becomes genuinely dangerous',
+  'takes the first watch every night and will not explain why',
+  'has a persistent cough they attribute to "dust" in places where there is clearly no dust',
+  'greets everyone with the name of a saint and expects them to know which one applies',
+  'seems to be waiting for a specific person to appear and scans every crowd for their face',
+  'translates everything into Goblin first before saying it in Common — even when Goblin doesn\'t have the word',
+  'leaves exactly one coin at every shrine regardless of denomination or deity',
+  'has very strong opinions about water — the smell, the taste, the movement, the depth',
+  'refers to themselves in the third person when discussing past events',
+  'carries a scroll case that they have never opened in front of anyone and never will',
+  'measures all distances in "how far a goat could throw it"',
+  'refuses to cross water without saying something to it first',
+  'has a specific laugh for situations that aren\'t funny and uses it constantly',
+  'won\'t make eye contact with anyone taller than them and won\'t explain why',
+  'sleeps with one boot on and considers this normal',
+  'can identify any inn\'s quality by the smell before entering',
+  'keeps a running tally of every favor owed and is extremely precise about reciprocation',
+  'never finishes a meal, always leaves something, can\'t explain the compulsion',
+  'hums a different song for different types of danger and has one for everything',
+  'compulsively touches the wall when moving through unfamiliar spaces',
+  'has a nickname for every type of opponent and uses them mid-combat',
+  'always sits with their back to a wall and insists on arriving first',
+  'knows at least one phrase in every language they\'ve heard spoken and uses them at inappropriate times',
+  'treats all written documents as potential traps until proven otherwise',
 ];
 
 const BACKGROUNDS = [
@@ -157,6 +288,27 @@ const BACKGROUNDS = [
   'Former Kryn Dynasty soldier who defected after the battle of Pride\'s Call. Doesn\'t talk about what they saw.',
   'A dockworker from the Menagerie Coast who saw something they weren\'t meant to see.',
   'A scholar from Uthodurn researching something the elves and dwarves both claim doesn\'t exist.',
+  // Additional backgrounds
+  'A Soltryce Academy washout who knows three incomplete but highly dangerous spells and is fully aware of the irony.',
+  'An ex-Revelry sailor who jumped ship at Nicodranas with stolen navigational charts and a complicated relationship with their former captain.',
+  'A Volstrucker operative who survived their own decommissioning and has been living under an assumed identity for four years.',
+  'Raised in the Iothia Moorland by an orcish clan that they later had to leave under circumstances they describe as "complicated."',
+  'A former Assembly laboratory assistant who knows exactly what they were mixing and refuses to believe it was being used for what it was being used for.',
+  'A Clovis Concord customs inspector who was bribed once, reported it to the wrong person, and has been running since.',
+  'Born in Bazzoxan during a siege — their first sounds were war and their first word was the name of a Dynasty soldier who was kind to their mother.',
+  'A failed bard who can\'t carry a tune but can reproduce any sound they\'ve ever heard, perfectly, which turns out to be much more useful.',
+  'An Eiselcross Syrinlya researcher who catalogued Aeoran artifacts until one of them catalogued them back.',
+  'A Shadycreek Run native who grew up knowing the names of every gang lieutenant in the city and the specific insults that would provoke each one.',
+  'A Zemnian apothecary whose shop was purchased by the Myriad without warning. They\'ve been trying to figure out why ever since.',
+  'Grew up hearing a specific piece of music every night from the direction of the Savalirwood. Never found out what made it.',
+  'A former Dwendalian military herald whose unit was ordered to deliver a message they read before delivering. The message explained why they were expendable.',
+  'An Umavi — a soul who has lived multiple lives through consecution — who doesn\'t know it yet, but dreams in a language they were never taught.',
+  'A Menagerie Coast jeweler\'s apprentice who accidentally authenticated a forgery so convincing that the Concord is now hunting both the forger and the authenticator.',
+  'A refugee from Pride\'s Call who watched the battle from a cellar and remembered more than anyone expected.',
+  'A monk of Ioun who was copying a text when the text began copying itself. The copy described events that hadn\'t happened yet.',
+  'Former circus knife-thrower whose partner survived the act for eleven years before deciding they\'d rather throw knives at different things.',
+  'A Greying Wildlands hunter who tracked a creature into the Savalirwood, found it, and followed it for three days before realizing it was leading them somewhere specific.',
+  'The only surviving child of a noble family that the Empire officially declared to have died of fever. The Empire knows they\'re alive. They know the Empire knows.',
 ];
 
 const MONSTERS = [
