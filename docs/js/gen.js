@@ -333,37 +333,305 @@ function generateNPC(opts={}) {
 
 // ── Quest Generator ───────────────────────────────────────────────────────────
 
+const _QT = [ // quest type templates
+  { type:'retrieval',   verb:'Retrieve',  icon:'📦' },
+  { type:'elimination', verb:'Eliminate', icon:'🗡' },
+  { type:'escort',      verb:'Escort',    icon:'🛡' },
+  { type:'investigation',verb:'Investigate',icon:'🔍' },
+  { type:'rescue',      verb:'Rescue',    icon:'⛓' },
+  { type:'sabotage',    verb:'Sabotage',  icon:'💣' },
+  { type:'heist',       verb:'Steal',     icon:'🎭' },
+  { type:'diplomacy',   verb:'Negotiate', icon:'🤝' },
+  { type:'defense',     verb:'Defend',    icon:'🏰' },
+  { type:'exploration', verb:'Explore',   icon:'🗺' },
+];
+
+const _VILLAIN_TYPES = [
+  { arch:'corrupt official',   motiv:'accumulating personal power before the war ends',       secret:'has been feeding military positions to the Myriad for a cut of the spoils' },
+  { arch:'Assembly mage',      motiv:'finishing a forbidden experiment that cost three lives already', secret:'the experiment is working — and they know it shouldn\'t be' },
+  { arch:'Myriad lieutenant',  motiv:'paying off a debt to someone worse than themselves',    secret:'has a family they\'re trying to protect and the debt is a threat against them' },
+  { arch:'cult leader',        motiv:'genuine belief — the Betrayer God they serve promised them something', secret:'the god hasn\'t answered in six months and they\'re improvising' },
+  { arch:'disgraced noble',    motiv:'reclaiming a title stripped by false accusation',       secret:'the accusation wasn\'t entirely false, but the punishment was disproportionate' },
+  { arch:'mercenary captain',  motiv:'fulfilling a contract without understanding its purpose', secret:'now knows what they\'re helping with and is too far in to stop' },
+  { arch:'Kryn dissenter',     motiv:'breaking Dynasty doctrine they believe is becoming tyrannical', secret:'they\'re right, but their methods are creating the very crisis they feared' },
+  { arch:'ancient undead',     motiv:'completing work left unfinished before death',          secret:'the work was unfinished for a reason — someone stopped them last time' },
+  { arch:'rival adventurer',   motiv:'the same thing the party wants, for different reasons', secret:'was hired by the same person who hired the party — and knows it' },
+  { arch:'Volstrucker agent',  motiv:'following orders they can\'t refuse',                  secret:'the orders came from above their handler — someone in the Assembly is operating outside the chain' },
+];
+
+const _GIVER_ROLES = [
+  { role:'faction envoy',   personality_hint:'composed but clearly under pressure, choosing words with surgical care' },
+  { role:'desperate merchant', personality_hint:'visibly frightened, has clearly not slept, keeps checking the door' },
+  { role:'Cobalt Soul monk',personality_hint:'serene but urgent — they\'ve already exhausted every official option' },
+  { role:'grieving relative',personality_hint:'grief and fury in equal measure, wants justice more than they want the party to be safe' },
+  { role:'anonymous informant',personality_hint:'face obscured, voice altered, knows far more than they should' },
+  { role:'local authority',  personality_hint:'embarrassed to ask outsiders, very clear about what will happen if word gets out' },
+  { role:'former enemy',     personality_hint:'hates asking and wants the party to know they know it' },
+  { role:'dying witness',    personality_hint:'calm — they\'ve already processed the worst; they just need someone to finish it' },
+];
+
+const _ALLY_ROLES = [
+  { role:'informant inside the enemy group', use:'can pass messages, open one locked door, confirm one piece of intel' },
+  { role:'local guide who knows the terrain', use:'advantage on navigation, knows two hidden routes, owes someone a favor' },
+  { role:'disgruntled faction member',         use:'will testify, will forge a document once, won\'t fight' },
+  { role:'scholar who knows the relevant history', use:'can identify artifacts, translate one text, explain one trap mechanism' },
+  { role:'fence who moves stolen goods',        use:'can source one unusual item, knows who\'s bought what recently' },
+  { role:'a child who was there and saw everything', use:'perfect memory of what happened, completely unreliable narrator' },
+  { role:'retired adventurer',                  use:'will fight once in a genuine emergency; has seen this before' },
+  { role:'Cobalt Soul archivist',               use:'can verify documents, identify seals, find records faster than anyone else' },
+];
+
+const _ACT_STRUCTURES = {
+  retrieval: [
+    { name:'Act I — Find It',      tmpl:'Locate {object} in {loc1}. The trail leads through {terrain}. Someone got there first and left in a hurry.' },
+    { name:'Act II — Take It',     tmpl:'The {object} is guarded or trapped. Getting it out without triggering {complication} requires {approach}.' },
+    { name:'Act III — Keep It',    tmpl:'The moment the party has it, someone else wants it. The road back to {loc3} is no longer safe.' },
+  ],
+  elimination: [
+    { name:'Act I — Find Them',    tmpl:'Track the target through {loc1}. The target knows they\'re being hunted and has taken precautions in {terrain}.' },
+    { name:'Act II — Get Close',   tmpl:'Reach the target in {loc2}. Their protection is {complication}. The approach requires {approach}.' },
+    { name:'Act III — The Reckoning', tmpl:'Confront the target. They have a last card to play. The outcome at {loc3} isn\'t as clean as the contract suggested.' },
+  ],
+  escort: [
+    { name:'Act I — Meet the Client', tmpl:'The client is harder to move than expected. Their situation at {loc1} is more complicated than the briefing described.' },
+    { name:'Act II — The Road',    tmpl:'Three days through {terrain}. The route through {loc2} is compromised. Someone knows the party is coming.' },
+    { name:'Act III — Delivery',   tmpl:'The destination at {loc3} is not what was promised. The client knows something. The question is whether it changes things.' },
+  ],
+  investigation: [
+    { name:'Act I — The Surface',  tmpl:'The obvious answer at {loc1} is wrong. Evidence in {terrain} points somewhere no one wanted to look.' },
+    { name:'Act II — The Thread',  tmpl:'Pulling the thread leads to {loc2}. Someone is actively destroying evidence. {complication} is a distraction.' },
+    { name:'Act III — The Truth',  tmpl:'The real answer leads to {loc3}. Knowing it creates a problem: the party now has to decide what to do with it.' },
+  ],
+  rescue: [
+    { name:'Act I — Find Where',   tmpl:'Locate the prisoner in {loc1}. They were moved recently. The current holding location is {terrain}.' },
+    { name:'Act II — Get In',      tmpl:'Infiltrate {loc2}. The obstacle is {complication}. Getting in is one problem. Getting out is another.' },
+    { name:'Act III — Get Out',    tmpl:'The prisoner is alive — barely, or not what the party expected. The exit through {loc3} is now contested.' },
+  ],
+  sabotage: [
+    { name:'Act I — Recon',        tmpl:'Assess the target at {loc1}. Security in {terrain} is higher than reported. Someone tipped them off.' },
+    { name:'Act II — The Work',    tmpl:'Execute the sabotage at {loc2}. {complication} was not in the briefing. The plan needs to change.' },
+    { name:'Act III — The Fallout',tmpl:'The sabotage succeeded — partially. Something at {loc3} wasn\'t supposed to happen. Now it has.' },
+  ],
+  heist: [
+    { name:'Act I — The Plan',     tmpl:'Case {loc1}. Map the security at {terrain}. Someone who works there is willing to help — for a price and with conditions.' },
+    { name:'Act II — The Job',     tmpl:'Execute at {loc2}. Two things go wrong. One was anticipated. {complication} was not.' },
+    { name:'Act III — The Exit',   tmpl:'The job is done. The exit through {loc3} is the problem. Someone knew before the party got in.' },
+  ],
+  diplomacy: [
+    { name:'Act I — The Parties',  tmpl:'Meet both sides at {loc1}. Neither is negotiating in good faith. {complication} explains why.' },
+    { name:'Act II — The Obstacle',tmpl:'A third party is actively sabotaging the talks. Their asset is operating from {loc2} in {terrain}.' },
+    { name:'Act III — The Table',  tmpl:'Return to the table at {loc3} with leverage. An agreement is possible — the question is whether either party will honor it.' },
+  ],
+  defense: [
+    { name:'Act I — Fortify',      tmpl:'Assess and prepare {loc1}. The defenses are worse than reported. {complication} is already inside.' },
+    { name:'Act II — The Assault', tmpl:'The attack comes from {terrain} in a direction nobody expected. The second wave targets {loc2}.' },
+    { name:'Act III — The Cost',   tmpl:'The location is held — but {loc3} paid a price. Something important was lost or someone important was taken.' },
+  ],
+  exploration: [
+    { name:'Act I — The Edge',     tmpl:'Reach the boundary of known territory at {loc1}. The terrain past {terrain} changes in ways the maps don\'t show.' },
+    { name:'Act II — The Interior',tmpl:'The site at {loc2} is occupied. Something or someone has been here. {complication} suggests they haven\'t left.' },
+    { name:'Act III — The Discovery',tmpl:'The full picture at {loc3} is not what anyone expected. It raises more questions than it answers. Some of those questions are dangerous.' },
+  ],
+};
+
+const _TWISTS = [
+  'The quest giver is withholding the real reason they need this done — but their reason is genuinely sympathetic.',
+  'One of the NPCs the party has been treating as an ally is reporting to the enemy. They\'ve been doing it reluctantly and badly.',
+  'The "villain" is acting on accurate information that the faction giving the quest doesn\'t want known.',
+  'The object, person, or location at the center of the quest is not what it was described as.',
+  'A second party — completely unrelated to either side — has the same objective and has been one step ahead the whole time.',
+  'The target knows the party is coming and has been using the approach as a distraction.',
+  'Someone important to the quest is already dead. Has been for longer than anyone admits.',
+  'The complication is intentional — planted by the quest giver to ensure the party has no choice but to proceed.',
+  'The reward offered is real but is itself the thing that creates the next problem.',
+  'What the faction called a "retrieval" is a destruction order. They just knew the party wouldn\'t accept it if framed that way.',
+  'The location the quest is set in has a secret the locals protect collectively — and the quest threatens to expose it.',
+  'The enemy and the quest giver used to be the same person, faction, or cause. The split was recent and traumatic.',
+  'One piece of the party\'s own background is directly connected to this situation. They don\'t know it yet.',
+  'The "simple job" is a test. Someone is watching the entire time to see how the party makes the hard choices.',
+  'There are two correct solutions and they are mutually exclusive. No one told the party that upfront.',
+];
+
+const _COMPLICATIONS = [
+  'A patrol with unusual orders is covering exactly the route the party planned to use.',
+  'Weather has sealed the fastest approach — the only option adds a day and goes through contested territory.',
+  'The contact who was supposed to help is unavailable. The only replacement is someone who owes the party nothing.',
+  'A Cobalt Soul investigator is already here and asking questions that overlap with the party\'s business.',
+  'The item/person being sought has been moved once since the intel was gathered.',
+  'Someone is burning the evidence. The party has an hour before the trail goes cold.',
+  'A second faction has the same objective and less patience.',
+  'The local authority is cooperating — until they understand what\'s actually happening, at which point they become an obstacle.',
+  'An innocent party is in the middle of it. What the quest requires will harm them unless the party improvises.',
+  'The villain has leverage: a hostage, blackmail material, or a contingency that triggers on their death.',
+  'The party\'s approach has been assumed by someone inside the enemy group. They\'ve been playing along to gather information.',
+  'There\'s a third objective nobody mentioned that the quest giver absolutely requires and won\'t explain in advance.',
+];
+
+const _RESOLUTIONS = {
+  clean:    { name:'Clean Success',   tmpl:'Objective achieved. {faction} gets what it wanted. The party earned the reward and no unexpected consequences are immediately visible.' },
+  messy:    { name:'Messy Success',   tmpl:'Objective achieved, but {complication} created collateral damage the faction will need to manage. The reward is paid. Someone is unhappy.' },
+  twist:    { name:'Pyrrhic Win',     tmpl:'The goal is achieved but the twist has changed what victory means. The faction is satisfied; the party may not be.' },
+  partial:  { name:'Partial Success', tmpl:'The primary objective was completed but something was lost — time, an ally, evidence, or a secondary goal. Reward is partial.' },
+  backfire: { name:'The Truth Costs', tmpl:'Success revealed something the party wasn\'t meant to know. The faction is pleased with the outcome and uncomfortable with the party\'s new knowledge.' },
+  defect:   { name:'Turn the Table',  tmpl:'The party refuses the final order and finds a third option — protecting the target, exposing the client, or negotiating something the faction didn\'t authorize.' },
+};
+
+function _qNpcName() {
+  const cultures=Object.keys(NAMES);
+  const c=NAMES[pick(cultures)];
+  const isFemale=Math.random()<0.5;
+  const first=pick(isFemale?c.first_f:c.first_m);
+  const last=pick(c.last);
+  return `${first} ${last}`;
+}
+
 function generateQuest(opts={}) {
   const faction = opts.faction
     ? FACTIONS.find(f=>f.name===opts.faction)||pick(FACTIONS)
     : pick(FACTIONS);
-  const regionKey = opts.region || faction.region;
+  const regionKey = opts.region || pick([faction.region, ...Object.keys(REGIONS).slice(0,2)]);
   const region = REGIONS[regionKey] || REGIONS[pick(Object.keys(REGIONS))];
   const level = opts.level || 5;
+  const difficulty = pick(['Medium','Hard','Hard','Deadly']);
 
-  const rewards = [
-    `${200*level} gp and a letter of Imperial passage`,
-    `A rare spell scroll (level ${Math.ceil(level/3)})`,
-    `An uncommon magic item from the faction\'s vault`,
-    `Safe passage through ${pick(region.locations)} and faction contacts`,
-    `${150*level} gp and a significant reputation increase`,
-    `A deed to a small property in ${pick(region.locations)}`,
-    `${100*level} gp and a promised favour from the faction leader`,
-  ];
+  const qt = pick(_QT);
+  const villainType = pick(_VILLAIN_TYPES);
+  const giverRole = pick(_GIVER_ROLES);
+  const allyRole = pick(_ALLY_ROLES);
+
+  const loc1 = pick(region.locations);
+  const loc2 = pick(region.locations.filter(l=>l!==loc1)||region.locations);
+  const loc3 = pick(region.locations.filter(l=>l!==loc1&&l!==loc2)||region.locations);
+  const terrain = pick(region.terrain);
+
+  const complication = pick(_COMPLICATIONS);
+  const approach = pick(['stealth and patience','a convincing cover identity','an alliance with a local contact','a direct distraction','violence as a last resort']);
+
+  const twist1 = pick(_TWISTS);
+  const twist2 = pick(_TWISTS.filter(t=>t!==twist1));
+
+  // Build act descriptions from template
+  const actTmpls = _ACT_STRUCTURES[qt.type] || _ACT_STRUCTURES.investigation;
+  const acts = actTmpls.map((a, i) => {
+    const desc = a.tmpl
+      .replace('{loc1}', loc1).replace('{loc2}', loc2).replace('{loc3}', loc3)
+      .replace('{terrain}', terrain).replace('{complication}', complication.slice(0,80)+'…')
+      .replace('{approach}', approach).replace('{object}', pick(['the artefact','the document','the item','the package','the evidence','the relic']));
+    const actDiff = i===0?'Easy':i===1?difficulty:'Deadly';
+    const enc = generateEncounter(level, opts.partySize||4, actDiff.toLowerCase());
+    return { name:a.name, desc, encounter:enc, terrain, location:[loc1,loc2,loc3][i] };
+  });
+
+  // Build resolution paths
+  const resKeys = Object.keys(_RESOLUTIONS);
+  const res1Key = pick(resKeys);
+  const res2Key = pick(resKeys.filter(k=>k!==res1Key));
+  const fmt = (t,k) => _RESOLUTIONS[k].tmpl
+    .replace('{faction}', faction.name)
+    .replace('{complication}', complication.slice(0,60)+'…');
+
+  // Build rewards tiers
+  const gpBase = level * (difficulty==='Deadly'?300:difficulty==='Hard'?200:150);
+  const scrollLevel = Math.min(9, Math.max(1, Math.ceil(level/3)));
+  const itemRarity = level>=15?'Very Rare':level>=11?'Rare':level>=7?'Uncommon':'Common';
+  const materialReward = pick([
+    `${gpBase} gp, a spell scroll (level ${scrollLevel}), and a letter of passage through ${faction.name}-controlled territory`,
+    `${gpBase} gp and a ${itemRarity} magic item from the faction vault (DM choice)`,
+    `${Math.floor(gpBase*0.7)} gp, faction standing increase, and a safe house contact in ${loc2}`,
+    `${gpBase} gp and a named favor redeemable from ${faction.name} leadership`,
+    `${Math.floor(gpBase*1.2)} gp — no questions, no strings, paid in advance`,
+  ]);
+
+  const factionHook = pick(faction.hooks);
 
   return {
-    id:uuid(),
-    title:pick(faction.hooks),
-    faction:faction.name,
-    region:regionKey,
-    location:pick(region.locations),
-    flavour:pick(region.encounter_flavour),
-    reward:pick(rewards),
-    difficulty:pick(['Easy','Medium','Hard','Deadly']),
-    urgency:pick(['Low — available for some time','Medium — days at most','Urgent — act tonight','Critical — hours remain']),
-    status:'Active',
-    notes:'',
-    created:Date.now(),
+    id: uuid(),
+    status: 'Active',
+    created: Date.now(),
+    notes: '',
+
+    // Identity
+    icon: qt.icon,
+    type: qt.type,
+    title: factionHook,
+    faction: faction.name,
+    region: regionKey,
+    difficulty,
+    urgency: pick(['Low — available for some time','Medium — days at most','Urgent — act tonight','Critical — hours remain']),
+    level,
+
+    // Narrative
+    hook: pick(region.encounter_flavour) + ' ' + pick([
+      'The party is the only option left.',
+      'Every official channel has failed.',
+      'Time is the only resource that matters now.',
+      'The faction can\'t be seen doing this themselves.',
+      'Someone needs to finish this before the wrong people connect the dots.',
+    ]),
+    background: `${faction.name} needs this handled because ${villainType.motiv}. What they\'re not saying: ${villainType.secret}. The situation has been building for weeks but reached a breaking point at ${loc1}.`,
+    objective: `${qt.verb} — ${factionHook.toLowerCase().replace(/^a /, '').replace(/^an /, '')}. Primary location: ${loc1}. Deadline as noted by urgency.`,
+
+    // Key people
+    questGiver: {
+      name: _qNpcName(),
+      role: giverRole.role,
+      personality: giverRole.personality_hint,
+      secret: pick([
+        'knows the villain personally and has a conflicted history with them',
+        'has been in contact with a rival faction and is hedging their bets',
+        'the reward offered is coming from their own funds, not the faction',
+        'believes the party will fail but needs to try every option',
+        'has already sent one other group on this job — they didn\'t come back',
+        'is personally responsible for the situation they\'re asking the party to fix',
+      ]),
+    },
+    villain: {
+      name: _qNpcName(),
+      arch: villainType.arch,
+      motivation: villainType.motiv,
+      secret: villainType.secret,
+      location: loc2,
+      threat: pick([
+        `${roll(4)+2} well-armed retainers with orders to kill`,
+        'access to a magical alarm network covering the approach routes',
+        'political protection that makes open conflict costly',
+        'leverage over someone the party may care about',
+        `a contingency: if they die, something happens at ${loc3}`,
+        'the ability to vanish and resurface somewhere worse',
+      ]),
+    },
+    ally: {
+      name: _qNpcName(),
+      role: allyRole.role,
+      usefulness: allyRole.use,
+      condition: pick([
+        'asks for nothing but requires the party to protect their identity',
+        'will only communicate through dead drops',
+        'wants something small in return — retrieve a specific item during the job',
+        'is afraid and needs convincing before they\'ll commit',
+        'has their own agenda that overlaps — not perfectly — with the party\'s',
+      ]),
+    },
+
+    // Structure
+    acts,
+    twists: [twist1, twist2],
+    complications: [complication, pick(_COMPLICATIONS.filter(c2=>c2!==complication))],
+
+    // Endings
+    resolutions: [
+      { name:_RESOLUTIONS[res1Key].name, desc:fmt(faction.name, res1Key) },
+      { name:_RESOLUTIONS[res2Key].name, desc:fmt(faction.name, res2Key) },
+      { name:'Exposed — The Truth Goes Wide', desc:`Evidence of what was really happening reaches the Cobalt Soul, a rival faction, or the public. ${faction.name}\'s position is complicated. The party chooses which way this falls.` },
+    ],
+
+    rewards: {
+      material: materialReward,
+      story: `Standing with ${faction.name}. Access to ${loc2} contacts. Possible future work — or complications — depending on what the party learned.`,
+      optional: `If the party protects the innocent party or exposes the villain\'s secret: additional ${Math.floor(gpBase*0.5)} gp bounty from a surprised third party.`,
+    },
+
+    dmNotes: `The villain\'s secret (${villainType.secret}) should be discoverable by a party that looks carefully. The twist ("${twist1.slice(0,60)}…") works best if telegraphed early in Act I so players feel clever rather than cheated when it lands. The third resolution path is available if the party asks the right questions in Act II.`,
   };
 }
 

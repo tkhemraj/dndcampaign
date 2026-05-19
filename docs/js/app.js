@@ -1327,59 +1327,197 @@ function renderQuests() {
   const complete=quests.filter(q=>q.status==='Complete');
 
   setContent(`
-    <div class="view-header"><h1>📜 Quest Generator</h1></div>
+    <div class="view-header">
+      <h1>📜 Quest Generator</h1>
+      <p class="view-sub">Full quest briefs — hook, acts, NPCs, encounters, twists, resolutions</p>
+    </div>
     <div class="gen-controls">
       <div class="gen-field"><label class="form-label">Faction</label><select id="q-faction" class="form-select">${factionOpts}</select></div>
       <div class="gen-field"><label class="form-label">Region</label><select id="q-region" class="form-select">${regionOpts}</select></div>
-      <button class="btn btn-primary" onclick="doGenerateQuest()">Generate Quest</button>
+      <div class="gen-field"><label class="form-label">Party Level</label><input id="q-level" class="form-input" type="number" min="1" max="20" value="${camp?.partyLevel||5}" style="width:70px"></div>
+      <button class="btn btn-primary" onclick="doGenerateQuest()">⚡ Generate Quest</button>
     </div>
     <div id="quest-result"></div>
     <hr class="section-hr">
     <div class="panel-header"><span>Active Quests (${active.length})</span></div>
-    <div id="quest-list-active">${active.length ? active.map(q=>questRow(q)).join('') : '<p class="empty-msg">No active quests</p>'}</div>
+    <div id="quest-list-active">${active.length ? active.map(q=>questRow(q)).join('') : '<p class="empty-msg">No active quests — generate one above</p>'}</div>
     ${complete.length?`<hr class="section-hr"><div class="panel-header" style="opacity:.6"><span>Completed (${complete.length})</span></div><div>${complete.map(q=>questRow(q)).join('')}</div>`:''}
   `);
 }
 
 function questRow(q) {
   const diffColor={Easy:'ok',Medium:'warn',Hard:'warn',Deadly:'crit'}[q.difficulty]||'muted';
-  return `<div class="list-row quest-row">
-    <div>
-      <div class="list-name" style="font-size:13px">${q.title}</div>
-      <div class="list-meta">${q.faction} · ${q.location} · <span class="tag-${diffColor}">${q.difficulty}</span> · ${q.urgency}</div>
-      <div class="list-meta" style="color:var(--accent);margin-top:2px">⚡ ${q.reward}</div>
+  const icon=q.icon||'📜';
+  return `<div class="list-row quest-row" style="cursor:pointer" onclick="expandQuestRow('${q.id}')">
+    <div style="flex:1;min-width:0">
+      <div class="list-name" style="font-size:14px">${icon} ${q.title}</div>
+      <div class="list-meta">${q.faction} · ${q.region} · <span class="tag-${diffColor}">${q.difficulty}</span> · <em>${q.urgency}</em></div>
+      <div class="list-meta" style="color:var(--accent);margin-top:2px">💰 ${q.rewards?q.rewards.material:q.reward||''}</div>
     </div>
-    <div style="display:flex;gap:6px;flex-shrink:0">
-      ${q.status==='Active'?`<button class="btn btn-secondary btn-sm" onclick="completeQuest('${q.id}')">Complete</button>`:'<span class="tag-ok" style="align-self:center">Done</span>'}
-      ${getActiveCampaign()?`<button class="btn-icon btn-danger-icon" onclick="deleteQuest('${q.id}')">✕</button>`:''}
+    <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
+      ${q.status==='Active'?`<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();completeQuest('${q.id}')">Complete</button>`:'<span class="tag-ok">Done</span>'}
+      ${getActiveCampaign()?`<button class="btn-icon btn-danger-icon" onclick="event.stopPropagation();deleteQuest('${q.id}')">✕</button>`:''}
     </div>
-  </div>`;
+  </div>
+  <div id="qrow-${q.id}" style="display:none">${questDetailCard(q,false,true)}</div>`;
 }
+
+window.expandQuestRow=function(id){
+  const el=document.getElementById('qrow-'+id);
+  if(el) el.style.display = el.style.display==='none'?'block':'none';
+};
 
 window.doGenerateQuest=function(){
   const camp=getActiveCampaign();
   const fval=document.getElementById('q-faction').value;
   const rval=document.getElementById('q-region').value;
-  const opts={level:camp?.partyLevel||5};
+  const lvl=parseInt(document.getElementById('q-level')?.value)||camp?.partyLevel||5;
+  const opts={level:lvl, partySize:camp?.partySize||4};
   if (fval!=='Any') opts.faction=fval;
   if (rval!=='Any') opts.region=rval;
   const q=generateQuest(opts);
   document.getElementById('quest-result').innerHTML=questDetailCard(q,true);
 };
 
-function questDetailCard(q, showSave=false) {
+function questDetailCard(q, showSave=false, compact=false) {
   const diffColor={Easy:'ok',Medium:'warn',Hard:'warn',Deadly:'crit'}[q.difficulty]||'muted';
-  return `<div class="info-card">
-    <div class="ic-title">${q.title}</div>
-    <div class="ic-row"><span class="ic-key">Faction</span><span>${q.faction}</span></div>
-    <div class="ic-row"><span class="ic-key">Location</span><span>${q.location}, ${q.region}</span></div>
-    <div class="ic-row"><span class="ic-key">Difficulty</span><span class="tag-${diffColor}">${q.difficulty}</span></div>
-    <div class="ic-row"><span class="ic-key">Urgency</span><span>${q.urgency}</span></div>
-    <div class="ic-row"><span class="ic-key">Reward</span><span style="color:var(--accent)">${q.reward}</span></div>
-    <div class="ic-row" style="margin-top:8px"><em style="color:var(--muted);font-size:13px">${q.flavour}</em></div>
-    <div style="margin-top:12px;display:flex;gap:8px">
-      ${showSave&&getActiveCampaign()?`<button class="btn btn-primary btn-sm" onclick="saveQuest('${encodeURIComponent(JSON.stringify(q))}')">Save Quest</button>`:''}
-      <button class="btn btn-secondary btn-sm" onclick="doGenerateQuest()">Re-generate</button>
+  const enc2html = enc => {
+    if(!enc||!enc.monsters) return '<em style="color:var(--muted)">No encounter</em>';
+    return enc.monsters.map(m=>`<span class="enc-tag">${m.displayName||m.name} <span style="color:var(--muted)">(${m.hp}hp / AC${m.ac})</span>${m.traits?` <span style="color:#9b9" title="${m.traits}">★</span>`:''}</span>`).join(' ');
+  };
+
+  const saveBtn = showSave&&getActiveCampaign()
+    ? `<button class="btn btn-primary btn-sm" onclick="saveQuest('${encodeURIComponent(JSON.stringify(q))}')">💾 Save Quest</button>`
+    : '';
+
+  return `<div class="quest-card${compact?' quest-card-compact':''}">
+
+    <div class="quest-header">
+      <div>
+        <div class="quest-icon">${q.icon||'📜'}</div>
+        <div>
+          <div class="quest-title">${q.title}</div>
+          <div class="quest-meta-row">
+            <span class="tag-${diffColor}">${q.difficulty}</span>
+            <span class="quest-chip">${q.faction}</span>
+            <span class="quest-chip">${q.region}</span>
+            <span class="quest-chip">Lvl ${q.level||'?'}</span>
+            <span class="quest-urgency">${q.urgency}</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        ${saveBtn}
+        ${showSave?`<button class="btn btn-secondary btn-sm" onclick="doGenerateQuest()">↻ Re-roll</button>`:''}
+      </div>
+    </div>
+
+    <div class="quest-body">
+
+      <div class="quest-section">
+        <div class="quest-section-title">🎣 The Hook</div>
+        <p class="quest-text">${q.hook}</p>
+      </div>
+
+      <div class="quest-section">
+        <div class="quest-section-title">📖 Background <span class="quest-dm-tag">DM</span></div>
+        <p class="quest-text">${q.background}</p>
+      </div>
+
+      <div class="quest-section">
+        <div class="quest-section-title">🎯 Objective</div>
+        <p class="quest-text">${q.objective}</p>
+      </div>
+
+      <div class="quest-section">
+        <div class="quest-section-title">👥 Key People</div>
+        <div class="quest-npc-grid">
+          <div class="quest-npc-card">
+            <div class="quest-npc-role">Quest Giver</div>
+            <div class="quest-npc-name">${q.questGiver.name}</div>
+            <div class="quest-npc-title">${q.questGiver.role}</div>
+            <p class="quest-npc-desc"><em>${q.questGiver.personality}</em></p>
+            <div class="quest-npc-secret"><span class="quest-dm-tag">DM</span> ${q.questGiver.secret}</div>
+          </div>
+          <div class="quest-npc-card quest-npc-villain">
+            <div class="quest-npc-role">Antagonist</div>
+            <div class="quest-npc-name">${q.villain.name}</div>
+            <div class="quest-npc-title">${q.villain.arch}</div>
+            <p class="quest-npc-desc">${q.villain.motivation}</p>
+            <div class="quest-npc-secret"><span class="quest-dm-tag">DM</span> ${q.villain.secret}</div>
+            <div style="margin-top:6px;font-size:11px;color:#e74c3c">⚠ ${q.villain.threat}</div>
+          </div>
+          <div class="quest-npc-card quest-npc-ally">
+            <div class="quest-npc-role">Potential Ally</div>
+            <div class="quest-npc-name">${q.ally.name}</div>
+            <div class="quest-npc-title">${q.ally.role}</div>
+            <p class="quest-npc-desc">${q.ally.usefulness}</p>
+            <div class="quest-npc-secret"><em>${q.ally.condition}</em></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="quest-section">
+        <div class="quest-section-title">🗺 The Adventure</div>
+        <div class="quest-acts">
+          ${q.acts.map((act,i)=>`
+            <div class="quest-act">
+              <div class="quest-act-header">
+                <span class="quest-act-num">${['I','II','III'][i]}</span>
+                <span class="quest-act-name">${act.name}</span>
+                <span class="quest-act-loc">📍 ${act.location}</span>
+                <span class="tag-${i===0?'ok':i===1?'warn':'crit'}">${i===0?'Easy':i===1?q.difficulty:'Deadly'}</span>
+              </div>
+              <p class="quest-text" style="margin:8px 0">${act.desc}</p>
+              <div class="quest-encounter-line">
+                <span style="color:var(--muted);font-size:11px;margin-right:8px">⚔ Encounter:</span>
+                ${enc2html(act.encounter)}
+                <span style="color:var(--muted);font-size:11px;margin-left:8px">(${act.encounter?.totalXP||0} XP adjusted)</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="quest-two-col">
+        <div class="quest-section">
+          <div class="quest-section-title">🔀 Twists <span class="quest-dm-tag">DM</span></div>
+          <ul class="quest-list">
+            ${q.twists.map(t=>`<li>${t}</li>`).join('')}
+          </ul>
+        </div>
+        <div class="quest-section">
+          <div class="quest-section-title">⚡ Complications</div>
+          <ul class="quest-list">
+            ${q.complications.map(c=>`<li>${c}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+
+      <div class="quest-section">
+        <div class="quest-section-title">🏁 Resolution Paths</div>
+        <div class="quest-resolutions">
+          ${q.resolutions.map(r=>`
+            <div class="quest-resolution">
+              <div class="quest-resolution-name">${r.name}</div>
+              <p class="quest-text">${r.desc}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="quest-rewards">
+        <div class="quest-section-title">💰 Rewards</div>
+        <div class="quest-reward-row"><span class="quest-reward-key">Material</span><span>${q.rewards.material}</span></div>
+        <div class="quest-reward-row"><span class="quest-reward-key">Story</span><span>${q.rewards.story}</span></div>
+        <div class="quest-reward-row"><span class="quest-reward-key">Optional</span><span style="color:var(--accent)">${q.rewards.optional}</span></div>
+      </div>
+
+      <div class="quest-section quest-dm-notes">
+        <div class="quest-section-title">🎲 DM Notes <span class="quest-dm-tag">DM</span></div>
+        <p class="quest-text">${q.dmNotes}</p>
+      </div>
+
     </div>
   </div>`;
 }
