@@ -196,60 +196,130 @@ function renderWelcome() {
 function renderDashboard() {
   if (!requireCampaign()) return;
   const camp=getActiveCampaign();
-  const recentNPCs=camp.npcs.slice(-3).reverse();
   const activeQuests=camp.quests.filter(q=>q.status==='Active');
+  const completedQuests=camp.quests.filter(q=>q.status==='Completed');
+  const aliveNPCs=camp.npcs.filter(n=>n.status!=='dead');
+  const totalXP=camp.combatHistory.reduce((s,c)=>s+(c.xp||0),0);
+  const recentCombats=camp.combatHistory.slice(-3).reverse();
+  const recentNPCs=aliveNPCs.slice(-4).reverse();
+
+  // Standard 5e XP thresholds by level
+  const XP_THRESH=[0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000,999999];
+  const lvl=Math.min(camp.partyLevel||1,19);
+  const xpThis=XP_THRESH[lvl-1];
+  const xpNext=XP_THRESH[lvl];
+  const xpPct=xpNext>xpThis?Math.min(100,Math.round(Math.max(0,totalXP-xpThis)/(xpNext-xpThis)*100)):100;
+
+  const combatBanner=camp.activeCombat?`
+    <div class="dash-combat-banner">
+      <div>
+        <div class="dash-combat-title">🩸 Active Combat: ${camp.activeCombat.name}</div>
+        <div class="dash-combat-meta">Round ${camp.activeCombat.round} · ${camp.activeCombat.combatants.filter(c=>!c.defeated).length} combatants remaining · ${camp.activeCombat.xp||0} XP at stake</div>
+      </div>
+      <button class="btn btn-primary" onclick="navigate('combat')">Resume Combat →</button>
+    </div>`:''
+
+  const questsHtml=activeQuests.length
+    ? activeQuests.slice(0,5).map(q=>`
+        <div class="dash-quest-row" onclick="navigate('quests')">
+          <div>
+            <span class="dash-quest-title">${q.title}</span>
+            ${q.urgency?`<span class="quest-urgency quest-urgency-${(q.urgency||'').toLowerCase()}">${q.urgency}</span>`:''}
+          </div>
+          <div class="dash-quest-meta">${q.faction||''}${q.type?' · '+q.type:''}</div>
+          ${q.acts&&q.acts[0]?`<div class="dash-quest-act">Act 1: ${q.acts[0].title}</div>`:''}
+        </div>`).join('')
+    : '<p class="empty-msg">No active quests — generate some in Quests</p>';
+
+  const npcsHtml=recentNPCs.length
+    ? recentNPCs.map(n=>`
+        <div class="dash-npc-row" onclick="navigate('npcs')">
+          <span class="dash-npc-name">${n.name}</span>
+          <span class="dash-npc-meta">${n.race||''} ${n.npc_class||n.class||''}</span>
+          <span class="dash-npc-faction">${n.faction||''}</span>
+        </div>`).join('')
+    : '<p class="empty-msg">No NPCs yet — generate some in NPCs</p>';
+
+  const combatHistHtml=recentCombats.length
+    ? recentCombats.map(c=>{
+        const d=new Date(c.ended||c.started||Date.now());
+        const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+        const rounds=c.round||1;
+        const killed=(c.combatants||[]).filter(x=>x.defeated&&x.type==='monster').length;
+        return `<div class="dash-hist-row">
+          <div>
+            <div class="dash-hist-name">${c.name}</div>
+            <div class="dash-hist-meta">${rounds} round${rounds!==1?'s':''} · ${killed} defeated · ${c.xp||0} XP</div>
+          </div>
+          <span class="dash-hist-date">${dateStr}</span>
+        </div>`;
+      }).join('')
+    : '<p class="empty-msg" style="font-size:12px">No combats yet</p>';
 
   setContent(`
-    <div class="view-header">
-      <h1>${camp.name}</h1>
-      <div class="header-actions">
-        <button class="btn btn-secondary" onclick="editCampaignModal()">Edit Campaign</button>
+    <div class="dash-header">
+      <div>
+        <div class="dash-campaign-name">${camp.name}</div>
+        <div class="dash-campaign-meta">Level ${camp.partyLevel} party · ${camp.partySize} players · ${camp.combatHistory.length} encounter${camp.combatHistory.length!==1?'s':''} logged</div>
       </div>
-    </div>
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-num">${camp.partyLevel}</div><div class="stat-label">Party Level</div></div>
-      <div class="stat-card"><div class="stat-num">${camp.partySize}</div><div class="stat-label">Players</div></div>
-      <div class="stat-card"><div class="stat-num">${camp.npcs.length}</div><div class="stat-label">NPCs</div></div>
-      <div class="stat-card"><div class="stat-num">${activeQuests.length}</div><div class="stat-label">Active Quests</div></div>
-      <div class="stat-card"><div class="stat-num">${camp.combatHistory.length}</div><div class="stat-label">Combats</div></div>
+      <button class="btn btn-secondary" onclick="editCampaignModal()">Edit Campaign</button>
     </div>
 
-    <div class="dash-grid">
-      <div class="dash-panel">
-        <div class="panel-header"><span>🧙 Recent NPCs</span><button class="btn-link" onclick="navigate('npcs')">See all →</button></div>
-        ${recentNPCs.length ? recentNPCs.map(n=>`
-          <div class="list-row" onclick="showNPCDetail('${n.id}')">
-            <span class="list-name">${n.name}</span>
-            <span class="list-meta">${n.race} ${n.class} ${n.level}</span>
+    ${combatBanner}
+
+    <div class="dash-stats">
+      <div class="dash-stat"><div class="dash-stat-num">${aliveNPCs.length}</div><div class="dash-stat-label">NPCs</div></div>
+      <div class="dash-stat"><div class="dash-stat-num">${activeQuests.length}</div><div class="dash-stat-label">Active Quests</div></div>
+      <div class="dash-stat"><div class="dash-stat-num">${completedQuests.length}</div><div class="dash-stat-label">Completed</div></div>
+      <div class="dash-stat"><div class="dash-stat-num">${camp.combatHistory.length}</div><div class="dash-stat-label">Combats</div></div>
+      <div class="dash-stat"><div class="dash-stat-num">${totalXP.toLocaleString()}</div><div class="dash-stat-label">XP Earned</div></div>
+    </div>
+
+    <div class="dash-xp-bar-wrap">
+      <div class="dash-xp-labels">
+        <span style="font-size:11px;color:var(--muted)">Level ${lvl}</span>
+        <span style="font-size:11px;color:var(--muted)">${totalXP.toLocaleString()} / ${xpNext.toLocaleString()} XP → Level ${lvl+1} &nbsp;<span style="color:var(--accent);font-weight:700">${xpPct}%</span></span>
+        <span style="font-size:11px;color:var(--muted)">Level ${lvl+1}</span>
+      </div>
+      <div class="dash-xp-track"><div class="dash-xp-fill" style="width:${xpPct}%"></div></div>
+    </div>
+
+    <div class="dash-main-grid">
+      <div class="dash-col-main">
+        <div class="dash-panel">
+          <div class="panel-header"><span>📜 Active Quests (${activeQuests.length})</span><button class="btn-link" onclick="navigate('quests')">See all →</button></div>
+          ${questsHtml}
+          <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="navigate('quests')">+ Generate Quest</button>
+        </div>
+        <div class="dash-panel">
+          <div class="panel-header"><span>🧙 NPC Roster (${aliveNPCs.length})</span><button class="btn-link" onclick="navigate('npcs')">See all →</button></div>
+          ${npcsHtml}
+          <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="navigate('npcs')">+ Generate NPC</button>
+        </div>
+      </div>
+      <div class="dash-col-side">
+        <div class="dash-panel">
+          <div class="panel-header"><span>⚡ Quick Actions</span></div>
+          <div class="dash-quick-grid">
+            <button class="dash-quick-btn" onclick="navigate('encounters')">⚔ Encounter</button>
+            <button class="dash-quick-btn" onclick="navigate('maps')">🗺 Map</button>
+            <button class="dash-quick-btn" onclick="navigate('npcs')">🧙 NPC</button>
+            <button class="dash-quick-btn" onclick="navigate('quests')">📜 Quest</button>
+            <button class="dash-quick-btn" onclick="navigate('spells')">✨ Spells</button>
+            <button class="dash-quick-btn" onclick="navigate('lore')">📖 Lore</button>
+            <button class="dash-quick-btn" onclick="navigate('rules')">📋 Rules</button>
+            <button class="dash-quick-btn" onclick="navigate('music')">🎵 Music</button>
           </div>
-        `).join('') : '<p class="empty-msg">No NPCs yet — generate some</p>'}
-        <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="navigate('npcs')">+ Generate NPC</button>
-      </div>
-
-      <div class="dash-panel">
-        <div class="panel-header"><span>📜 Active Quests</span><button class="btn-link" onclick="navigate('quests')">See all →</button></div>
-        ${activeQuests.length ? activeQuests.slice(0,4).map(q=>`
-          <div class="list-row">
-            <span class="list-name" style="font-size:13px">${q.title}</span>
-            <span class="list-meta">${q.faction}</span>
-          </div>
-        `).join('') : '<p class="empty-msg">No active quests — generate some</p>'}
-        <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="navigate('quests')">+ Generate Quest</button>
-      </div>
-
-      <div class="dash-panel">
-        <div class="panel-header"><span>⚔ Quick Start</span></div>
-        <button class="btn btn-secondary dash-btn" onclick="navigate('encounters')">Build Encounter</button>
-        <button class="btn btn-secondary dash-btn" onclick="navigate('maps')">Generate Map</button>
-        <button class="btn btn-secondary dash-btn" onclick="navigate('music')">Play Music</button>
-        <button class="btn btn-secondary dash-btn" onclick="navigate('lore')">Wildemount Lore</button>
-        ${camp.activeCombat ? `<button class="btn btn-primary dash-btn" onclick="navigate('combat')">🩸 Resume Combat (Round ${camp.activeCombat.round})</button>` : ''}
-      </div>
-
-      <div class="dash-panel">
-        <div class="panel-header"><span>📝 Notes</span></div>
-        <textarea id="camp-notes" class="form-textarea" placeholder="Session notes, plot threads, reminders...">${camp.notes}</textarea>
-        <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="saveNotes()">Save Notes</button>
+        </div>
+        <div class="dash-panel">
+          <div class="panel-header"><span>🩸 Combat History</span></div>
+          ${combatHistHtml}
+        </div>
+        <div class="dash-panel">
+          <div class="panel-header"><span>📝 Session Notes</span></div>
+          <textarea id="camp-notes" class="form-textarea" placeholder="Session notes, plot threads, reminders…" style="min-height:140px">${camp.notes||''}</textarea>
+          <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="saveNotes()">Save Notes</button>
+        </div>
       </div>
     </div>
   `);
