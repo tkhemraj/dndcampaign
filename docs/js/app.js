@@ -1784,7 +1784,6 @@ function encounterCard(enc) {
 window.launchCombat=function(data){
   const camp=getActiveCampaign(); if(!camp) return;
   const enc=JSON.parse(decodeURIComponent(data));
-  // Build combatants — roll initiative for monsters
   const combatants=enc.monsters.map(m=>({
     id:m.id||uuid(),
     name:m.displayName||m.name,
@@ -1795,23 +1794,34 @@ window.launchCombat=function(data){
     hp:m.hp, maxHp:m.hp, ac:m.ac,
     atk:m.atk, dmg:m.dmg, cr:m.cr,
     conditions:[], notes:'', defeated:false,
+    concentrating:null, deathSuccesses:0, deathFailures:0,
   }));
-  // Sort by initiative desc
   combatants.sort((a,b)=>b.initiative-a.initiative);
-  camp.activeCombat={
+  const combat={
     id:uuid(),
     name:`${enc.difficulty.charAt(0).toUpperCase()+enc.difficulty.slice(1)} Encounter`,
     round:1, activeIdx:0,
     combatants,
+    log:[],
     partyLevel:enc.partyLevel,
     partySize:enc.partySize,
     xp:enc.totalXP,
     started:Date.now(),
+    environment:enc.environment||null,
+    tactics:enc.tactics||null,
   };
+  _combatLog(combat, `Combat started — ${enc.monsterSummary||''}${enc.environment?' in '+enc.environment.name:''}`);
+  camp.activeCombat=combat;
   saveState(); buildSidebar(); navigate('combat');
 };
 
 // ── Combat Tracker ────────────────────────────────────────────────────────────
+
+function _combatLog(combat, msg) {
+  combat.log = combat.log || [];
+  combat.log.unshift({ round: combat.round, msg, ts: Date.now() });
+  if (combat.log.length > 150) combat.log.length = 150;
+}
 
 function renderCombat() {
   const camp=getActiveCampaign();
@@ -1822,23 +1832,55 @@ function renderCombat() {
   const combat=camp.activeCombat;
   const alive=combat.combatants.filter(c=>!c.defeated).length;
   const active=combat.combatants[combat.activeIdx];
+  const log=combat.log||[];
+
+  const logHtml=log.length
+    ? log.map(e=>`<div class="log-entry"><span class="log-round">R${e.round}</span> ${e.msg}</div>`).join('')
+    : '<div class="log-entry" style="color:var(--muted)">No events yet.</div>';
+
+  const envHtml=combat.environment?`
+    <div class="combat-env-panel">
+      <div class="combat-side-title">📍 ${combat.environment.name}</div>
+      <div class="combat-env-features">${(combat.environment.features||[]).map(f=>{
+        const ci=f.indexOf(':');
+        return `<div class="combat-env-feature"><strong>${ci>-1?f.slice(0,ci):f}</strong>${ci>-1?': '+f.slice(ci+1).trim():''}</div>`;
+      }).join('')}</div>
+    </div>`:''
+
+  const tacticsHtml=combat.tactics?`
+    <div class="combat-tactics-panel">
+      <div class="combat-side-title">⚔ Tactics Reference</div>
+      <div class="combat-tactic-item"><span class="combat-tactic-label">Opening</span>${combat.tactics.open}</div>
+      <div class="combat-tactic-item"><span class="combat-tactic-label">Sustained</span>${combat.tactics.sustain}</div>
+      <div class="combat-tactic-item"><span class="combat-tactic-label">Morale</span>${combat.tactics.morale}</div>
+    </div>`:''
 
   setContent(`
     <div class="combat-header">
       <div>
         <h1 style="margin:0">${combat.name}</h1>
-        <div class="combat-meta">Round ${combat.round} · ${alive} combatants · ${combat.xp||0} XP</div>
+        <div class="combat-meta">Round ${combat.round} · ${alive} active · ${combat.xp||0} XP</div>
       </div>
       <div class="combat-actions">
         <button class="btn btn-primary" onclick="combatNextTurn()">▶ Next Turn</button>
         <button class="btn btn-secondary" onclick="showAddCombatantModal()">+ Add</button>
-        <button class="btn btn-secondary" onclick="rollAllInitiative()">🎲 Roll All Initiative</button>
+        <button class="btn btn-secondary" onclick="rollAllInitiative()">🎲 Roll Initiative</button>
         <button class="btn btn-danger" onclick="endCombat()">End Combat</button>
       </div>
     </div>
-    ${active?`<div class="active-banner">⚡ <strong>${active.name}'s turn</strong></div>`:''}
-    <div id="combatant-list">
-      ${combat.combatants.map((c,i)=>combatantRow(c,i,i===combat.activeIdx)).join('')}
+    ${active?`<div class="active-banner">⚡ <strong>${active.name}'s turn</strong>${active.concentrating?` &nbsp;🔮 <em>${active.concentrating}</em>`:''}</div>`:''}
+    <div class="combat-main-grid">
+      <div id="combatant-list">
+        ${combat.combatants.map((c,i)=>combatantRow(c,i,i===combat.activeIdx)).join('')}
+      </div>
+      <div class="combat-side-panel">
+        <div class="combat-log">
+          <div class="combat-log-header">📋 Combat Log</div>
+          <div class="combat-log-body">${logHtml}</div>
+        </div>
+        ${envHtml}
+        ${tacticsHtml}
+      </div>
     </div>
   `);
 }
@@ -1847,6 +1889,20 @@ function combatantRow(c, idx, isActive) {
   const hpPct=Math.max(0,Math.min(100,Math.round(c.hp/c.maxHp*100)));
   const hpClass=hpPct>60?'hp-ok':hpPct>30?'hp-low':'hp-crit';
   const condTags=c.conditions.map(cond=>`<span class="cond-tag" onclick="removeCombatantCondition('${c.id}','${cond}')">${cond} ✕</span>`).join('');
+  const atkStr=c.atk?(typeof c.atk==='number'?(c.atk>=0?'+':'')+c.atk:c.atk):'';
+
+  const concBadge=c.concentrating
+    ? `<span class="cr-conc-badge" onclick="setConcentration('${c.id}')">🔮 ${c.concentrating}</span>`
+    : (!c.defeated?`<button class="cond-add cr-conc-btn" onclick="setConcentration('${c.id}')">+ Conc.</button>`:'');
+
+  const deathSavesHtml=(c.type==='player'&&c.hp===0&&!c.defeated)?`
+    <div class="cr-deathsaves">
+      <span class="cr-death-label">Death Saves</span>
+      <span class="cr-death-group">
+        ${[0,1,2].map(i=>`<span class="cr-ds cr-ds-success${i<(c.deathSuccesses||0)?' cr-ds-filled':''}" onclick="doDeathSave('${c.id}',true)">✓</span>`).join('')}
+        ${[0,1,2].map(i=>`<span class="cr-ds cr-ds-fail${i<(c.deathFailures||0)?' cr-ds-filled':''}" onclick="doDeathSave('${c.id}',false)">✗</span>`).join('')}
+      </span>
+    </div>`:'';
 
   return `<div class="combatant-row ${isActive?'combatant-active':''} ${c.defeated?'combatant-dead':''}" id="cr-${c.id}">
     <div class="cr-init" onclick="editInitiative('${c.id}')" title="Click to edit initiative">
@@ -1867,15 +1923,15 @@ function combatantRow(c, idx, isActive) {
           <div class="cr-hp-bar-wrap"><div class="cr-hp-bar ${hpClass}" style="width:${c.defeated?0:hpPct}%"></div></div>
         </div>
         <span class="cr-ac">AC ${c.ac}</span>
-        ${c.atk?`<span class="cr-meta">ATK ${c.atk} · ${c.dmg}</span>`:''}
+        ${atkStr?`<span class="cr-meta">ATK ${atkStr}${c.dmg?' · '+c.dmg:''}</span>`:''}
       </div>
-      ${condTags||!c.defeated?`<div class="cr-conds">${condTags}${!c.defeated?`<button class="cond-add" onclick="showConditionPicker('${c.id}')">+ Condition</button>`:''}${c.notes?`<span class="cr-note">${c.notes}</span>`:''}
-      </div>`:''}
+      ${!c.defeated?`<div class="cr-conds">${condTags}<button class="cond-add" onclick="showConditionPicker('${c.id}')">+ Condition</button>${concBadge}${c.notes?`<span class="cr-note">${c.notes}</span>`:''}</div>`:(condTags?`<div class="cr-conds">${condTags}</div>`:'')}
+      ${deathSavesHtml}
     </div>
     <div class="cr-btns">
       ${!c.defeated?`
-        <button class="cr-btn cr-btn-heal" onclick="combatEditHP('${c.id}',true)" title="Heal">+HP</button>
-        <button class="cr-btn cr-btn-dmg"  onclick="combatEditHP('${c.id}',false)" title="Damage">-HP</button>
+        <button class="cr-btn cr-btn-heal" onclick="combatEditHP('${c.id}',true)">+HP</button>
+        <button class="cr-btn cr-btn-dmg"  onclick="combatEditHP('${c.id}',false)">-HP</button>
       `:''}
       <button class="cr-btn" onclick="toggleDefeated('${c.id}')">${c.defeated?'↩':'💀'}</button>
       <button class="cr-btn cr-btn-del" onclick="removeCombatant('${c.id}')">✕</button>
@@ -1894,6 +1950,8 @@ window.combatNextTurn=function(){
   }
   if (next<=combat.activeIdx) combat.round++;
   combat.activeIdx=next;
+  const active=combat.combatants[next];
+  _combatLog(combat, `▶ ${active.name}'s turn${active.concentrating?` — 🔮 ${active.concentrating}`:''}${active.conditions.length?` (${active.conditions.join(', ')})`:''}`);
   saveState(); renderCombat();
 };
 
@@ -1923,11 +1981,25 @@ window.combatEditHP=function(id, isHeal){
 window.doEditHP=function(id, isHeal){
   const amt=parseInt(document.getElementById('hp-amount').value)||0;
   const camp=getActiveCampaign(); if(!camp||!camp.activeCombat) return;
-  const c=camp.activeCombat.combatants.find(x=>x.id===id); if(!c) return;
-  if (isHeal) c.hp=Math.min(c.maxHp, c.hp+amt);
-  else {
+  const combat=camp.activeCombat;
+  const c=combat.combatants.find(x=>x.id===id); if(!c) return;
+  if (isHeal) {
+    c.hp=Math.min(c.maxHp, c.hp+amt);
+    if (c.hp>0) { c.deathSuccesses=0; c.deathFailures=0; c.defeated=false; }
+    _combatLog(combat, `💚 ${c.name} healed ${amt} HP → ${c.hp}/${c.maxHp}`);
+  } else {
+    const prev=c.hp;
     c.hp=Math.max(0, c.hp-amt);
-    if (c.hp===0) c.defeated=true;
+    const concNote=c.concentrating?` — Conc. DC ${Math.max(10,Math.floor(amt/2))}!`:'';
+    _combatLog(combat, `💥 ${c.name} took ${amt} damage (${prev}→${c.hp} HP)${concNote}`);
+    if (c.hp===0) {
+      if (c.type==='player') {
+        _combatLog(combat, `⚠ ${c.name} is down — rolling death saves`);
+      } else {
+        c.defeated=true;
+        _combatLog(combat, `💀 ${c.name} defeated`);
+      }
+    }
   }
   saveState(); closeModal(); renderCombat();
 };
@@ -1956,29 +2028,43 @@ window.doEditInitiative=function(id){
 window.showConditionPicker=function(id){
   showModal('Add Condition',`
     <div class="cond-picker">
-      ${CONDITIONS.map(cond=>`<button class="cond-pick-btn" onclick="doAddCondition('${id}','${cond}')">${cond}</button>`).join('')}
+      ${CONDITIONS.map(cond=>{
+        const name=typeof cond==='object'?cond.name:cond;
+        const desc=typeof cond==='object'?cond.desc:'';
+        return `<div class="cond-pick-item" onclick="doAddCondition('${id}','${name.replace(/'/g,"\\'")}')">
+          <div class="cond-pick-name">${name}</div>
+          ${desc?`<div class="cond-pick-desc">${desc}</div>`:''}
+        </div>`;
+      }).join('')}
     </div>
   `,[{label:'Cancel',action:'closeModal()'}]);
 };
 
 window.doAddCondition=function(id,cond){
   const camp=getActiveCampaign(); if(!camp||!camp.activeCombat) return;
-  const c=camp.activeCombat.combatants.find(x=>x.id===id); if(!c) return;
+  const combat=camp.activeCombat;
+  const c=combat.combatants.find(x=>x.id===id); if(!c) return;
   if (!c.conditions.includes(cond)) c.conditions.push(cond);
+  _combatLog(combat, `🔴 ${c.name} gained condition: <strong>${cond}</strong>`);
   saveState(); closeModal(); renderCombat();
 };
 
 window.removeCombatantCondition=function(id,cond){
   const camp=getActiveCampaign(); if(!camp||!camp.activeCombat) return;
-  const c=camp.activeCombat.combatants.find(x=>x.id===id); if(!c) return;
+  const combat=camp.activeCombat;
+  const c=combat.combatants.find(x=>x.id===id); if(!c) return;
   c.conditions=c.conditions.filter(x=>x!==cond);
+  _combatLog(combat, `✅ ${c.name}: ${cond} removed`);
   saveState(); renderCombat();
 };
 
 window.toggleDefeated=function(id){
   const camp=getActiveCampaign(); if(!camp||!camp.activeCombat) return;
-  const c=camp.activeCombat.combatants.find(x=>x.id===id); if(!c) return;
-  c.defeated=!c.defeated; if(c.defeated) c.hp=0; else c.hp=Math.max(1,c.maxHp);
+  const combat=camp.activeCombat;
+  const c=combat.combatants.find(x=>x.id===id); if(!c) return;
+  c.defeated=!c.defeated;
+  if(c.defeated){ c.hp=0; _combatLog(combat, `💀 ${c.name} defeated`); }
+  else { c.hp=Math.max(1,Math.floor(c.maxHp/2)); c.deathSuccesses=0; c.deathFailures=0; _combatLog(combat, `🔄 ${c.name} revived at ${c.hp} HP`); }
   saveState(); renderCombat();
 };
 
@@ -1996,6 +2082,11 @@ window.showAddCombatantModal=function(){
       <div><label class="form-label">HP</label><input id="ac-hp" class="form-input" type="number" min="1" value="10"></div>
       <div><label class="form-label">AC</label><input id="ac-ac" class="form-input" type="number" min="1" value="12"></div>
       <div><label class="form-label">Initiative</label><input id="ac-init" class="form-input" type="number" value="${roll(20)}"></div>
+      <div><label class="form-label">Init Bonus</label><input id="ac-initbonus" class="form-input" type="number" value="0" style="width:60px"></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">ATK Bonus</label><input id="ac-atk" class="form-input" placeholder="+4" value=""></div>
+      <div><label class="form-label">Damage</label><input id="ac-dmg" class="form-input" placeholder="1d8+3" value=""></div>
     </div>
     <label class="form-label">Type</label>
     <select id="ac-type" class="form-select"><option value="monster">Monster</option><option value="player">Player</option></select>
@@ -2007,13 +2098,24 @@ window.showAddCombatantModal=function(){
 
 window.doAddCombatant=function(){
   const camp=getActiveCampaign(); if(!camp||!camp.activeCombat) return;
+  const combat=camp.activeCombat;
   const name=document.getElementById('ac-name').value.trim()||'Unknown';
   const hp=parseInt(document.getElementById('ac-hp').value)||10;
   const ac=parseInt(document.getElementById('ac-ac').value)||12;
   const init=parseInt(document.getElementById('ac-init').value)||10;
+  const initBonus=parseInt(document.getElementById('ac-initbonus').value)||0;
+  const atk=document.getElementById('ac-atk').value.trim()||'';
+  const dmg=document.getElementById('ac-dmg').value.trim()||'';
   const type=document.getElementById('ac-type').value;
-  camp.activeCombat.combatants.push({id:uuid(),name,type,emoji:type==='player'?'🧙':'👹',initiative:init,initBonus:0,hp,maxHp:hp,ac,conditions:[],notes:'',defeated:false});
-  camp.activeCombat.combatants.sort((a,b)=>b.initiative-a.initiative);
+  combat.combatants.push({
+    id:uuid(),name,type,emoji:type==='player'?'🧙':'👹',
+    initiative:init,initBonus,
+    hp,maxHp:hp,ac,atk,dmg,
+    conditions:[],notes:'',defeated:false,
+    concentrating:null,deathSuccesses:0,deathFailures:0,
+  });
+  combat.combatants.sort((a,b)=>b.initiative-a.initiative);
+  _combatLog(combat, `➕ ${name} added to combat (${type})`);
   saveState(); closeModal(); renderCombat();
 };
 
@@ -2023,6 +2125,55 @@ window.endCombat=function(){
   camp.combatHistory.push({...camp.activeCombat, ended:Date.now()});
   camp.activeCombat=null;
   saveState(); buildSidebar(); navigate('dashboard');
+};
+
+window.setConcentration=function(id){
+  const camp=getActiveCampaign(); if(!camp?.activeCombat) return;
+  const c=camp.activeCombat.combatants.find(x=>x.id===id); if(!c) return;
+  showModal(`Concentration: ${c.name}`,`
+    <label class="form-label">Concentrating on (leave blank to clear)</label>
+    <input id="conc-val" class="form-input" placeholder="e.g. Hold Person, Darkness…" value="${c.concentrating||''}">
+  `,[
+    {label:'Save',cls:'btn-primary',action:`doSetConcentration('${id}')`},
+    {label:'Cancel',action:'closeModal()'},
+  ]);
+  setTimeout(()=>document.getElementById('conc-val')?.focus(),50);
+};
+
+window.doSetConcentration=function(id){
+  const val=document.getElementById('conc-val').value.trim();
+  const camp=getActiveCampaign(); if(!camp?.activeCombat) return;
+  const combat=camp.activeCombat;
+  const c=combat.combatants.find(x=>x.id===id); if(!c) return;
+  const prev=c.concentrating;
+  c.concentrating=val||null;
+  if(val) _combatLog(combat, `🔮 ${c.name} concentrating on <em>${val}</em>`);
+  else if(prev) _combatLog(combat, `${c.name} dropped concentration (${prev})`);
+  saveState(); closeModal(); renderCombat();
+};
+
+window.doDeathSave=function(id, success){
+  const camp=getActiveCampaign(); if(!camp?.activeCombat) return;
+  const combat=camp.activeCombat;
+  const c=combat.combatants.find(x=>x.id===id); if(!c) return;
+  if(success){
+    c.deathSuccesses=Math.min(3,(c.deathSuccesses||0)+1);
+    if(c.deathSuccesses>=3){
+      c.hp=1; c.deathSuccesses=0; c.deathFailures=0;
+      _combatLog(combat, `🌟 ${c.name} stabilized at 1 HP!`);
+    } else {
+      _combatLog(combat, `✓ ${c.name} death save success (${c.deathSuccesses}/3)`);
+    }
+  } else {
+    c.deathFailures=Math.min(3,(c.deathFailures||0)+1);
+    if(c.deathFailures>=3){
+      c.defeated=true; c.hp=0;
+      _combatLog(combat, `💀 ${c.name} died — 3 failed death saves`);
+    } else {
+      _combatLog(combat, `✗ ${c.name} death save failure (${c.deathFailures}/3)`);
+    }
+  }
+  saveState(); renderCombat();
 };
 
 // ── Lore ──────────────────────────────────────────────────────────────────────
