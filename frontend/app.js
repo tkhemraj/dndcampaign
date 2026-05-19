@@ -15,6 +15,17 @@ window.api = async function(url, method = 'GET', body = null) {
   return res.json();
 };
 
+// ── Toast notifications ─────────────────────────────────────────────────────
+window.toast = function(msg, type = 'info', duration = 3000) {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.style.setProperty('--toast-delay', `${duration / 1000 - 0.3}s`);
+  el.textContent = msg;
+  container.appendChild(el);
+  el.addEventListener('animationend', e => { if (e.animationName === 'toastOut') el.remove(); });
+};
+
 // ── Modal helpers ───────────────────────────────────────────────────────────
 window.openModal  = () => document.getElementById('modal-overlay').classList.remove('hidden');
 window.closeModal = () => document.getElementById('modal-overlay').classList.add('hidden');
