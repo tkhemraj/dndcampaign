@@ -404,6 +404,7 @@ const AVATAR_SETS = {
 };
 let _pendingAvatar = null;
 let _fogCtx = null;
+let _fogBrushRadius = 2;
 let _mapHUD = { round:1, counters:[], timers:[] };
 let _timerInterval = null;
 
@@ -445,6 +446,14 @@ function renderMaps() {
         <button class="token-btn" onclick="fogResetAll()" title="Hide all floor tiles">☁ Reset</button>
         <button class="token-btn" id="btn-fog-view" onclick="toggleFogView()">👁 DM View</button>
       </div>
+      <div class="token-row">
+        <span class="token-label">Brush:</span>
+        <button class="token-btn fog-brush-btn" data-r="1" onclick="setFogBrush(1)">1</button>
+        <button class="token-btn fog-brush-btn active" data-r="2" onclick="setFogBrush(2)">2</button>
+        <button class="token-btn fog-brush-btn" data-r="3" onclick="setFogBrush(3)">3</button>
+        <button class="token-btn fog-brush-btn" data-r="4" onclick="setFogBrush(4)">4</button>
+        <span style="font-size:11px;color:var(--muted)">tile radius (fog painting)</span>
+      </div>
       <div class="token-row"><span id="token-hint" class="token-hint"></span></div>
     </div>
     <div class="map-hud" id="map-hud" style="display:none">
@@ -478,7 +487,7 @@ window.doGenerateMap=function(){
   const type=document.getElementById('map-type').value;
   const sub=document.getElementById('map-sub').value;
   _tokenMode=null; _tokenCounts={player:0,enemy:0,npc:0};
-  _pendingAvatar=null; _fogCtx=null;
+  _pendingAvatar=null; _fogCtx=null; _fogBrushRadius=2; window._ctxMapData=null;
   if (_timerInterval) { clearInterval(_timerInterval); _timerInterval=null; }
   _mapHUD = { round:1, counters:[], timers:[] };
   document.querySelectorAll('.token-btn[data-type]').forEach(b=>b.classList.remove('active'));
@@ -553,6 +562,11 @@ function drawMapCanvas(mapData) {
   fogCv.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
   scroll.appendChild(fogCv);
   _fogCtx = fogCv.getContext('2d');
+
+  const ctxMenu = document.createElement('div');
+  ctxMenu.id = 'map-ctx-menu';
+  ctxMenu.className = 'map-ctx-menu hidden';
+  scroll.appendChild(ctxMenu);
 
   const ctx = canvas.getContext('2d');
   const ovCtx = ovCanvas.getContext('2d');
@@ -692,11 +706,19 @@ function drawMapCanvas(mapData) {
     const px=e.clientX-rc.left, py=e.clientY-rc.top;
     return {px,py,tx:Math.floor(px/TS),ty:Math.floor(py/TS)};
   }
+  function touchXY(e){
+    const t=e.touches[0]||e.changedTouches[0];
+    const rc=ovCanvas.getBoundingClientRect();
+    const px=t.clientX-rc.left, py=t.clientY-rc.top;
+    return {px,py,tx:Math.floor(px/TS),ty:Math.floor(py/TS)};
+  }
+
   ovCanvas.addEventListener('mousedown',e=>{
+    ctxMenu.classList.add('hidden');
     const {px,py,tx,ty}=cvXY(e);
     if (_tokenMode==='reveal'||_tokenMode==='hide'){
       _fogPaint=true;
-      paintFog(mapData,tx,ty,_tokenMode==='reveal',1);
+      paintFog(mapData,tx,ty,_tokenMode==='reveal',_fogBrushRadius);
       renderFog(_fogCtx,mapData,W,H,TS);
       return;
     }
@@ -707,7 +729,7 @@ function drawMapCanvas(mapData) {
   ovCanvas.addEventListener('mousemove',e=>{
     const {px,py,tx,ty}=cvXY(e);
     if (_fogPaint){
-      paintFog(mapData,tx,ty,_tokenMode==='reveal',1);
+      paintFog(mapData,tx,ty,_tokenMode==='reveal',_fogBrushRadius);
       renderFog(_fogCtx,mapData,W,H,TS);
       return;
     }
@@ -732,10 +754,58 @@ function drawMapCanvas(mapData) {
   });
   ovCanvas.addEventListener('contextmenu',e=>{
     e.preventDefault();
-    const {tx,ty}=cvXY(e);
-    const idx=mapData.tokens.findIndex(t=>t.x===tx&&t.y===ty);
-    if (idx>=0){mapData.tokens.splice(idx,1);_drawTokens(ovCtx,mapData.tokens,W,H,TS,null);}
+    const {px,py,tx,ty}=cvXY(e);
+    const tok=mapData.tokens.find(t=>t.x===tx&&t.y===ty);
+    if (tok){
+      window._ctxMapData=mapData;
+      const hpLine=tok.hp!==undefined?`${tok.hp}/${tok.maxHp} HP · `:'';
+      ctxMenu.innerHTML=`
+        <div class="map-ctx-title">${tok.avatar||''} ${tok.label} &nbsp;<span style="color:var(--muted);font-weight:400">${hpLine}${tok.type}</span></div>
+        <button class="map-ctx-item" onclick="tokenRename('${tok.id}')">✏ Rename / Avatar</button>
+        <button class="map-ctx-item" onclick="tokenSetHP('${tok.id}')">❤ Set HP / AC</button>
+        <button class="map-ctx-item map-ctx-danger" onclick="tokenRemove('${tok.id}')">✕ Remove Token</button>`;
+      ctxMenu.style.left=`${Math.min(px,ovCanvas.width-155)}px`;
+      ctxMenu.style.top=`${Math.min(py,ovCanvas.height-115)}px`;
+      ctxMenu.classList.remove('hidden');
+    } else {
+      ctxMenu.classList.add('hidden');
+    }
   });
+
+  // Touch support
+  ovCanvas.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    ctxMenu.classList.add('hidden');
+    const c=touchXY(e);
+    if (_tokenMode==='reveal'||_tokenMode==='hide'){
+      _fogPaint=true;
+      paintFog(mapData,c.tx,c.ty,_tokenMode==='reveal',_fogBrushRadius);
+      renderFog(_fogCtx,mapData,W,H,TS); return;
+    }
+    const tok=mapData.tokens.find(t=>t.x===c.tx&&t.y===c.ty);
+    if(tok){_drag={id:tok.id,px:c.px,py:c.py};_drawTokens(ovCtx,mapData.tokens,W,H,TS,_drag);}
+    else if(_tokenMode){_placeToken(mapData,c.tx,c.ty);_drawTokens(ovCtx,mapData.tokens,W,H,TS,null);}
+  },{passive:false});
+  ovCanvas.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    const c=touchXY(e);
+    if(_fogPaint){paintFog(mapData,c.tx,c.ty,_tokenMode==='reveal',_fogBrushRadius);renderFog(_fogCtx,mapData,W,H,TS);return;}
+    if(!_drag) return;
+    _drag.px=c.px; _drag.py=c.py;
+    _drawTokens(ovCtx,mapData.tokens,W,H,TS,_drag);
+  },{passive:false});
+  ovCanvas.addEventListener('touchend',e=>{
+    e.preventDefault();
+    _fogPaint=false;
+    if(!_drag) return;
+    const c=touchXY(e);
+    const tok=mapData.tokens.find(t=>t.id===_drag.id);
+    if(tok){
+      tok.x=Math.max(0,Math.min(W-1,c.tx)); tok.y=Math.max(0,Math.min(H-1,c.ty));
+      if(tok.type==='player'){revealAround(mapData,tok.x,tok.y,6);renderFog(_fogCtx,mapData,W,H,TS);}
+    }
+    _drag=null; _drawTokens(ovCtx,mapData.tokens,W,H,TS,null);
+  },{passive:false});
 }
 
 function _mapTile(ctx, x, y, t, TS, isInRoom, pal) {
@@ -946,6 +1016,85 @@ window.clearTokens = function() {
   }
 };
 
+window.setFogBrush = function(r) {
+  _fogBrushRadius = r;
+  document.querySelectorAll('.fog-brush-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.r)===r));
+};
+
+window.tokenRename = function(id) {
+  const mapData=window._ctxMapData; if(!mapData) return;
+  const tok=mapData.tokens.find(t=>t.id===id); if(!tok) return;
+  const allAvatars=[...AVATAR_SETS.player,...AVATAR_SETS.enemy,...AVATAR_SETS.npc];
+  showModal(`Rename: ${tok.label}`,`
+    <label class="form-label">Label</label>
+    <input id="tok-label" class="form-input" value="${tok.label}">
+    <label class="form-label" style="margin-top:10px">Avatar</label>
+    <div class="avatar-strip" id="tok-av-strip" style="flex-wrap:wrap;gap:4px">
+      ${allAvatars.map(e=>`<button class="avatar-btn${tok.avatar===e?' active':''}" onclick="window._selTokAv('${tok.id}','${e}')">${e}</button>`).join('')}
+    </div>
+  `,[
+    {label:'Save',cls:'btn-primary',action:`doTokenRename('${id}')`},
+    {label:'Cancel',action:'closeModal()'},
+  ]);
+};
+window._selTokAv=function(id,emoji){
+  window._pendingTokAv=emoji;
+  document.querySelectorAll('#tok-av-strip .avatar-btn').forEach(b=>b.classList.toggle('active',b.textContent===emoji));
+};
+window.doTokenRename=function(id){
+  const mapData=window._ctxMapData; if(!mapData) return;
+  const tok=mapData.tokens.find(t=>t.id===id); if(!tok) return;
+  tok.label=document.getElementById('tok-label').value.trim()||tok.label;
+  if(window._pendingTokAv!==undefined){tok.avatar=window._pendingTokAv; window._pendingTokAv=undefined;}
+  closeModal();
+  const ov=document.getElementById('token-canvas');
+  if(ov) _drawTokens(ov.getContext('2d'),mapData.tokens,mapData.W,mapData.H,MAP_TS,null);
+};
+
+window.tokenSetHP=function(id){
+  const mapData=window._ctxMapData; if(!mapData) return;
+  const tok=mapData.tokens.find(t=>t.id===id); if(!tok) return;
+  showModal(`HP / AC: ${tok.label}`,`
+    <div class="form-row">
+      <div><label class="form-label">Current HP</label><input id="tok-hp" class="form-input" type="number" value="${tok.hp??tok.maxHp??10}"></div>
+      <div><label class="form-label">Max HP</label><input id="tok-maxhp" class="form-input" type="number" value="${tok.maxHp??10}"></div>
+      <div><label class="form-label">AC</label><input id="tok-ac" class="form-input" type="number" value="${tok.ac??10}"></div>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:6px">HP bar appears below the token on the map.</p>
+  `,[
+    {label:'Save',cls:'btn-primary',action:`doTokenSetHP('${id}')`},
+    {label:'Clear HP',action:`doTokenClearHP('${id}')`},
+    {label:'Cancel',action:'closeModal()'},
+  ]);
+};
+window.doTokenSetHP=function(id){
+  const mapData=window._ctxMapData; if(!mapData) return;
+  const tok=mapData.tokens.find(t=>t.id===id); if(!tok) return;
+  tok.maxHp=parseInt(document.getElementById('tok-maxhp').value)||10;
+  tok.hp=Math.min(tok.maxHp,parseInt(document.getElementById('tok-hp').value)||tok.maxHp);
+  tok.ac=parseInt(document.getElementById('tok-ac').value)||tok.ac;
+  closeModal();
+  const ov=document.getElementById('token-canvas');
+  if(ov) _drawTokens(ov.getContext('2d'),mapData.tokens,mapData.W,mapData.H,MAP_TS,null);
+};
+window.doTokenClearHP=function(id){
+  const mapData=window._ctxMapData; if(!mapData) return;
+  const tok=mapData.tokens.find(t=>t.id===id); if(!tok) return;
+  delete tok.hp; delete tok.maxHp;
+  closeModal();
+  const ov=document.getElementById('token-canvas');
+  if(ov) _drawTokens(ov.getContext('2d'),mapData.tokens,mapData.W,mapData.H,MAP_TS,null);
+};
+
+window.tokenRemove=function(id){
+  const mapData=window._ctxMapData; if(!mapData) return;
+  const idx=mapData.tokens.findIndex(t=>t.id===id);
+  if(idx>=0) mapData.tokens.splice(idx,1);
+  const cm=document.getElementById('map-ctx-menu'); if(cm) cm.classList.add('hidden');
+  const ov=document.getElementById('token-canvas');
+  if(ov) _drawTokens(ov.getContext('2d'),mapData.tokens,mapData.W,mapData.H,MAP_TS,null);
+};
+
 function _placeToken(mapData, tx, ty) {
   if (tx<0||ty<0||tx>=mapData.W||ty>=mapData.H) return;
   if ((mapData.grid[ty]?.[tx]??T.WALL) === T.WALL) return;
@@ -1014,6 +1163,21 @@ function _drawTokens(ovCtx, tokens, W, H, TS, drag) {
     // White ring always on top
     ovCtx.strokeStyle='rgba(255,255,255,0.80)'; ovCtx.lineWidth=1.5;
     ovCtx.beginPath(); ovCtx.arc(cx,cy,rad,0,Math.PI*2); ovCtx.stroke();
+
+    // HP bar below token
+    if (tok.hp!==undefined && tok.maxHp) {
+      const pct=Math.max(0,tok.hp/tok.maxHp);
+      const bw=TS*0.82, bx=cx-bw/2, by=cy+rad+2;
+      ovCtx.fillStyle='rgba(0,0,0,0.65)'; ovCtx.fillRect(bx,by,bw,4);
+      ovCtx.fillStyle=pct>0.6?'#3a3':'#aa3';  if(pct<=0.3) ovCtx.fillStyle='#a33';
+      ovCtx.fillRect(bx,by,bw*pct,4);
+      const hpFs=Math.max(6,Math.floor(TS*0.16));
+      ovCtx.fillStyle='rgba(255,255,255,0.9)'; ovCtx.font=`bold ${hpFs}px sans-serif`;
+      ovCtx.textAlign='center'; ovCtx.textBaseline='top';
+      ovCtx.shadowColor='rgba(0,0,0,0.8)'; ovCtx.shadowBlur=2;
+      ovCtx.fillText(`${tok.hp}/${tok.maxHp}`,cx,by+5);
+      ovCtx.shadowBlur=0;
+    }
   });
 }
 

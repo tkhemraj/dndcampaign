@@ -190,6 +190,13 @@
     .avatar-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; font-size: 15px; padding: 1px 4px; cursor: pointer; line-height: 1.5; transition: border-color .12s, background .12s; }
     .avatar-btn:hover { border-color: var(--accent); background: var(--surf2); }
     .avatar-btn.active { border-color: var(--accent); background: rgba(200,151,60,.18); box-shadow: 0 0 6px rgba(200,151,60,.3); }
+    .fog-brush-btn.active { background: var(--accent) !important; color: #0e0c09 !important; border-color: var(--accent) !important; }
+    .map-ctx-menu { position: absolute; z-index: 200; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 5px; min-width: 148px; box-shadow: 0 4px 18px rgba(0,0,0,.7); }
+    .map-ctx-menu.hidden { display: none; }
+    .map-ctx-title { font-size: 11px; font-weight: 700; color: var(--muted); padding: 3px 8px 6px; border-bottom: 1px solid var(--border2); margin-bottom: 4px; }
+    .map-ctx-item { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--text); font-size: 13px; padding: 6px 10px; border-radius: 5px; cursor: pointer; transition: all .1s; }
+    .map-ctx-item:hover { background: var(--surf2); color: var(--accent); }
+    .map-ctx-danger:hover { color: var(--crit) !important; }
 
     /* ── Map HUD ── */
     .map-hud { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin: 6px 0; }
