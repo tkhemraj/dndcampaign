@@ -557,7 +557,100 @@ const DIFFICULTY_THRESHOLDS = {
   20:{easy:2800,medium:5700,hard:8500,deadly:12700},
 };
 
-const CONDITIONS = ['Blinded','Charmed','Deafened','Exhausted','Frightened','Grappled','Incapacitated','Invisible','Paralyzed','Petrified','Poisoned','Prone','Restrained','Stunned','Unconscious'];
+const CONDITIONS = [
+  {name:'Blinded',desc:'Can\'t see. Attack rolls vs the creature have advantage. The creature\'s attack rolls have disadvantage.'},
+  {name:'Charmed',desc:'Can\'t attack the charmer or target them with harmful abilities/spells. The charmer has advantage on Charisma checks made to interact socially.'},
+  {name:'Deafened',desc:'Can\'t hear. Automatically fails any ability check that requires hearing.'},
+  {name:'Exhausted',desc:'See Exhaustion table (6 levels). Accumulate via forced march, starvation, extreme cold, etc.'},
+  {name:'Frightened',desc:'Disadvantage on ability checks and attack rolls while the source of fear is within line of sight. Can\'t willingly move closer to the source.'},
+  {name:'Grappled',desc:'Speed becomes 0, and can\'t benefit from any bonus to speed. Condition ends if grappler is incapacitated or if an effect removes them from the grappler\'s reach.'},
+  {name:'Incapacitated',desc:'Can\'t take actions or reactions.'},
+  {name:'Invisible',desc:'Impossible to see without special sense. Considered heavily obscured for hiding. Attack rolls vs the creature have disadvantage. The creature\'s attack rolls have advantage.'},
+  {name:'Paralyzed',desc:'Incapacitated (no actions/reactions). Can\'t move or speak. Automatically fails Str and Dex saving throws. Attacks vs the creature have advantage. Any attack that hits from within 5ft is a critical hit.'},
+  {name:'Petrified',desc:'Transformed into solid inanimate substance. Weight ×10, incapacitated. Unaware of surroundings. Attacks vs creature have advantage. Automatically fails Str/Dex saves. Resistant to all damage. Immune to poison/disease (existing suspended).'},
+  {name:'Poisoned',desc:'Disadvantage on attack rolls and ability checks.'},
+  {name:'Prone',desc:'Only movement is crawling (costs double). Disadvantage on attack rolls. Attacks vs creature have advantage if attacker is within 5ft; otherwise disadvantage.'},
+  {name:'Restrained',desc:'Speed becomes 0. Attack rolls vs creature have advantage. Creature\'s attack rolls have disadvantage. Disadvantage on Dexterity saving throws.'},
+  {name:'Stunned',desc:'Incapacitated (no actions/reactions). Can\'t move. Can speak only falteringly. Automatically fails Str and Dex saving throws. Attacks vs the creature have advantage.'},
+  {name:'Unconscious',desc:'Incapacitated (no actions/reactions). Can\'t move or speak. Unaware of surroundings. Drops whatever it\'s holding and falls prone. Automatically fails Str and Dex saving throws. Attacks vs creature have advantage. Any attack from within 5ft that hits is a critical hit.'},
+];
+
+const RULES_REFERENCE = {
+  combat_actions:[
+    {name:'Attack',desc:'Make one melee or ranged weapon attack (or unarmed strike). Extra Attack class feature grants more.'},
+    {name:'Cast a Spell',desc:'Cast a spell with a casting time of 1 action. Bonus action spells require only a cantrip as your action spell if you also cast a bonus action spell.'},
+    {name:'Dash',desc:'Your movement speed is doubled for this turn (before modifiers).'},
+    {name:'Disengage',desc:'Your movement doesn\'t provoke opportunity attacks for the rest of the turn.'},
+    {name:'Dodge',desc:'Until your next turn, any attack roll made against you has disadvantage if you can see the attacker. Dexterity saving throws have advantage. You lose this benefit if incapacitated or speed drops to 0.'},
+    {name:'Grapple',desc:'Make a Strength (Athletics) check vs target\'s Strength (Athletics) or Dexterity (Acrobatics). On success, target is grappled. Target must be no more than one size category larger than you.'},
+    {name:'Help',desc:'Aid another creature: one ally attacking the same target as you gets advantage on their first attack roll. Or assist a creature with an ability check by granting advantage.'},
+    {name:'Hide',desc:'Make a Dexterity (Stealth) check. If you succeed against the passive Perception of creatures watching, you become hidden.'},
+    {name:'Ready',desc:'Choose a trigger and a reaction. When the trigger occurs before your next turn, you may take the reaction. Uses your reaction.'},
+    {name:'Search',desc:'Devote your attention to finding something. Make a Wisdom (Perception) or Intelligence (Investigation) check.'},
+    {name:'Shove',desc:'Make a Strength (Athletics) check vs target\'s Strength (Athletics) or Dexterity (Acrobatics). Push target 5ft away or knock prone.'},
+    {name:'Use an Object',desc:'Interact with a second object in your environment (first is free with movement). Draw or stow a weapon. Administer a potion.'},
+    {name:'Two-Weapon Fighting',desc:'If you take the Attack action with a light melee weapon, you can use your bonus action to attack with another light melee weapon in your other hand (no ability mod to damage unless negative).'},
+    {name:'Opportunity Attack',desc:'Reaction. Triggered when a hostile creature you can see moves out of your reach. Make one melee attack against the provoking creature.'},
+    {name:'Improvised Weapon',desc:'Attack with an object not designed as a weapon. DM determines type. Usually 1d4 damage. Can throw objects 20/60ft.'},
+  ],
+  exhaustion:[
+    {level:1,effect:'Disadvantage on ability checks'},
+    {level:2,effect:'Speed halved'},
+    {level:3,effect:'Disadvantage on attack rolls and saving throws'},
+    {level:4,effect:'Hit point maximum halved'},
+    {level:5,effect:'Speed reduced to 0'},
+    {level:6,effect:'Death'},
+  ],
+  resting:{
+    short_rest:{
+      duration:'At least 1 hour',
+      benefits:'Spend any number of Hit Dice to recover HP (roll die + Con mod per die). Certain class features recharge (Warlock spell slots, Fighter Second Wind, Monk Ki etc).',
+    },
+    long_rest:{
+      duration:'At least 8 hours (including 6 hours sleep). Can\'t benefit from more than one long rest per 24 hours.',
+      benefits:'Regain all lost HP. Regain half your total Hit Dice (min 1). Recharge all spell slots, class features, and abilities that reset on a long rest.',
+      interruption:'Activity beyond light activity or 1 hour of standing watch interrupts the rest. Must restart.',
+    },
+  },
+  concentration:{
+    desc:'Some spells require concentration to maintain. You can only concentrate on one spell at a time. Casting another concentration spell ends the first.',
+    damage_rules:'When you take damage while concentrating, make a DC 10 or half-damage (whichever is higher) Constitution saving throw. Failure ends concentration.',
+    breaking:'Incapacitation or death ends concentration. DM may call for a check in other circumstances (buffeted by waves, shaken by earthquake).',
+  },
+  cover:{
+    half_cover:'Obstruction covers at least half the target\'s body. +2 bonus to AC and Dexterity saving throws.'},
+  cover_3q:{desc:'Three-quarters cover. The target has cover: behind a portcullis, arrow slit, or thick tree trunk. +5 bonus to AC and Dexterity saving throws.'},
+  cover_full:{desc:'Full cover. A target with full cover can\'t be targeted directly by an attack or a spell.'},
+  surprise:{
+    desc:'If the DM determines creatures are surprised at the start of combat, they can\'t move or take an action on their first turn, and they can\'t take reactions until their first turn ends.',
+    determining:'Compare active Dexterity (Stealth) of ambushing creatures vs passive Perception of targets. If the ambusher succeeds, the target is surprised on the first round.',
+  },
+  flanking:{
+    optional_rule:'If a creature and at least one of its allies are adjacent to an enemy on opposite sides, they can flank that enemy. Flanking grants advantage on melee attack rolls against that enemy.',
+  },
+  death_saves:{
+    desc:'When you drop to 0 HP: roll a d20 at the start of each turn. 10 or higher = 1 success. 9 or lower = 1 failure. 3 successes = stable. 3 failures = dead. A 20 = regain 1 HP. A 1 = 2 failures.',
+    damage:'Taking any damage while at 0 HP = 1 death save failure. Critical hit = 2 failures.',
+    stabilizing:'A stable creature regains 1d4 HP after 1d4 hours. Healing magic stabilizes and restores HP.',
+  },
+  critical_hits:{
+    desc:'When you roll a natural 20 on an attack roll, the hit is a critical hit. Roll all damage dice twice (not modifiers). Maximum damage does not apply — reroll all dice.',
+    optional_fumbles:'On a natural 1, the attack misses regardless of modifiers. DMs may rule fumbles (dropped weapon, fall prone) as an optional rule.',
+  },
+  spellcasting_rules:{
+    components:'V (verbal): must speak aloud. S (somatic): must have free hand. M (material): hold/consume material (a spell focus substitutes for most M components).',
+    attack_spells:'Ranged spell attacks have disadvantage when a hostile creature is adjacent to you unless you have the War Caster feat.',
+    ritual_casting:'Spells with the ritual tag can be cast as a ritual (+10 minutes, no spell slot consumed). Requires having the spell known or in a spellbook.',
+    counterspelling:'Can interrupt spell in the process of being cast. Uses your reaction. Must identify the spell being cast (free check if it\'s a spell you know).',
+  },
+  movement:{
+    difficult_terrain:'Costs 1 extra foot per foot moved through. Moving through a space occupied by a hostile creature is difficult terrain.',
+    climbing_swimming:'Costs 1 extra foot per foot unless creature has climbing or swimming speed.',
+    jumping:'Long jump: Str score in feet with running start (half without). High jump: 3 + Str mod in feet with running start.',
+    crawling:'Costs 1 extra foot per foot. Prone creatures must crawl.',
+    opportunity_attacks:'Triggered by leaving a creature\'s reach, not by being moved by others\' effects. Disengage action prevents.',
+  },
+};
 
 const MAP_TYPES = [
   { label:'Dungeon', value:'dungeon', subs:[
