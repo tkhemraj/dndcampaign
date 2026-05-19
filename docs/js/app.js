@@ -48,6 +48,8 @@ const VIEWS = {
   combat:     renderCombat,
   quests:     renderQuests,
   lore:       renderLore,
+  spells:     renderSpells,
+  rules:      renderRules,
 };
 
 let _currentView='';
@@ -95,6 +97,8 @@ function buildSidebar() {
       ${camp&&camp.activeCombat ? `<a class="nav-item nav-combat ${_currentView==='combat'?'active':''}" data-view="combat" onclick="navigate('combat')">🩸 Live Combat</a>` : ''}
       <a class="nav-item ${_currentView==='quests'?'active':''}" data-view="quests" onclick="navigate('quests')">📜 Quests</a>
       <a class="nav-item ${_currentView==='lore'?'active':''}" data-view="lore" onclick="navigate('lore')">📖 Lore</a>
+      <a class="nav-item ${_currentView==='spells'?'active':''}" data-view="spells" onclick="navigate('spells')">✨ Spells</a>
+      <a class="nav-item ${_currentView==='rules'?'active':''}" data-view="rules" onclick="navigate('rules')">📋 Rules</a>
     </nav>
     <div class="sidebar-footer">
       <div id="music-mini"></div>
@@ -1710,6 +1714,8 @@ function renderLore() {
       <button class="lore-tab active" onclick="showLoreTab('factions',this)">Factions</button>
       <button class="lore-tab" onclick="showLoreTab('regions',this)">Regions</button>
       <button class="lore-tab" onclick="showLoreTab('deities',this)">Deities</button>
+      <button class="lore-tab" onclick="showLoreTab('npcs',this)">Key NPCs</button>
+      <button class="lore-tab" onclick="showLoreTab('history',this)">History</button>
       <button class="lore-tab" onclick="showLoreTab('plots',this)">Plot Seeds</button>
       <button class="lore-tab" onclick="showLoreTab('names',this)">Name Generator</button>
     </div>
@@ -1754,6 +1760,22 @@ window.showLoreTab=function(tab, btn){
       </div>
     `).join('')}</div>`;
     el.innerHTML=section('Prime Deities',prime)+section('Betrayer Gods',betrayer)+section('Unique Entities',unique);
+  } else if (tab==='npcs') {
+    el.innerHTML=NPCS.map(n=>`
+      <div class="info-card" style="margin-bottom:12px">
+        <div class="ic-title">${n.name}</div>
+        <div class="ic-row"><span class="ic-key">Role</span><span>${n.role}</span><span class="ic-key" style="margin-left:16px">Faction</span><span>${n.faction}</span><span class="ic-key" style="margin-left:16px">Alignment</span><span>${n.alignment}</span></div>
+        <p style="color:var(--muted);font-size:13px;margin:8px 0">${n.desc}</p>
+      </div>
+    `).join('');
+  } else if (tab==='history') {
+    el.innerHTML=HISTORICAL_EVENTS.map(e=>`
+      <div class="info-card" style="margin-bottom:12px">
+        <div class="ic-title">${e.name}</div>
+        <div class="ic-row"><span class="ic-key">Era</span><span>${e.era}</span></div>
+        <p style="color:var(--muted);font-size:13px;margin:8px 0">${e.desc}</p>
+      </div>
+    `).join('');
   } else if (tab==='plots') {
     el.innerHTML=`<div class="plot-grid">${PLOT_SEEDS.map((s,i)=>`<div class="plot-card"><div class="plot-num">${i+1}</div><p>${s}</p></div>`).join('')}</div>`;
   } else if (tab==='names') {
@@ -1785,6 +1807,175 @@ window.doGenerateNames=function(){
     results.push(`${first} ${last}`);
   }
   document.getElementById('name-results').innerHTML=`<div class="name-list">${results.map(n=>`<span class="name-item">${n}</span>`).join('')}</div>`;
+};
+
+// ── Spells ────────────────────────────────────────────────────────────────────
+
+function renderSpells() {
+  setContent(`
+    <div class="view-header">
+      <h1>✨ Spell Reference</h1>
+      <p class="view-sub">SRD 5.1 (CC BY 4.0) · ${SPELLS.length} spells · Filter by level, school, or class</p>
+    </div>
+    <div class="spell-filters" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px">
+      <select id="sp-level" class="form-select" style="width:110px" onchange="filterSpells()">
+        <option value="">All Levels</option>
+        ${[0,1,2,3,4,5,6,7,8,9].map(l=>`<option value="${l}">${l===0?'Cantrip':'Level '+l}</option>`).join('')}
+      </select>
+      <select id="sp-school" class="form-select" style="width:140px" onchange="filterSpells()">
+        <option value="">All Schools</option>
+        ${['abjuration','conjuration','divination','enchantment','evocation','illusion','necromancy','transmutation'].map(s=>`<option value="${s}">${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+      </select>
+      <select id="sp-class" class="form-select" style="width:130px" onchange="filterSpells()">
+        <option value="">All Classes</option>
+        ${['bard','cleric','druid','paladin','ranger','sorcerer','warlock','wizard'].map(c=>`<option value="${c}">${c.charAt(0).toUpperCase()+c.slice(1)}</option>`).join('')}
+      </select>
+      <input id="sp-search" class="form-input" placeholder="Search name or description…" style="flex:1;min-width:200px" oninput="filterSpells()">
+    </div>
+    <div id="spell-results"></div>
+  `);
+  filterSpells();
+}
+
+const SCHOOL_COLORS={abjuration:'#4a90d9',conjuration:'#e8a838',divination:'#9b59b6',enchantment:'#e74c6c',evocation:'#e67e22',illusion:'#1abc9c',necromancy:'#2ecc71',transmutation:'#f39c12'};
+
+window.filterSpells=function(){
+  const lvl=document.getElementById('sp-level').value;
+  const school=document.getElementById('sp-school').value;
+  const cls=document.getElementById('sp-class').value;
+  const q=(document.getElementById('sp-search').value||'').toLowerCase();
+  const filtered=SPELLS.filter(s=>
+    (lvl===''||s.level===parseInt(lvl)) &&
+    (!school||s.school===school) &&
+    (!cls||s.classes.includes(cls)) &&
+    (!q||s.name.toLowerCase().includes(q)||s.desc.toLowerCase().includes(q))
+  );
+  const grouped={};
+  filtered.forEach(s=>{
+    const k=s.level===0?'Cantrips':'Level '+s.level;
+    if(!grouped[k])grouped[k]=[];
+    grouped[k].push(s);
+  });
+  const levelOrder=['Cantrips','Level 1','Level 2','Level 3','Level 4','Level 5','Level 6','Level 7','Level 8','Level 9'];
+  const el=document.getElementById('spell-results');
+  if(!filtered.length){el.innerHTML='<p style="color:var(--muted)">No spells match the current filters.</p>';return;}
+  el.innerHTML=levelOrder.filter(k=>grouped[k]).map(k=>`
+    <h3 style="color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:4px;margin:18px 0 10px">${k} <span style="color:var(--muted);font-size:13px;font-weight:400">(${grouped[k].length})</span></h3>
+    <div class="spell-grid">
+      ${grouped[k].map(s=>`
+        <div class="spell-card" onclick="this.classList.toggle('expanded')">
+          <div class="spell-card-head">
+            <span class="spell-name">${s.name}</span>
+            <span class="spell-school" style="color:${SCHOOL_COLORS[s.school]||'var(--muted)'};">${s.school}</span>
+          </div>
+          <div class="spell-meta">${s.castTime} · ${s.range} · ${s.duration}</div>
+          <div class="spell-classes">${s.classes.map(c=>`<span class="spell-class-tag">${c}</span>`).join('')}</div>
+          <div class="spell-desc">${s.desc}</div>
+          <div class="spell-components" style="color:var(--muted);font-size:11px;margin-top:4px">${s.components}</div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+};
+
+// ── Rules Reference ───────────────────────────────────────────────────────────
+
+function renderRules() {
+  setContent(`
+    <div class="view-header">
+      <h1>📋 Rules Reference</h1>
+      <p class="view-sub">SRD 5.1 quick-reference · Combat, Conditions, Resting, Spellcasting, Movement</p>
+    </div>
+    <div class="lore-tabs" id="rules-tabs">
+      <button class="lore-tab active" onclick="showRulesTab('combat',this)">Combat Actions</button>
+      <button class="lore-tab" onclick="showRulesTab('conditions',this)">Conditions</button>
+      <button class="lore-tab" onclick="showRulesTab('exhaustion',this)">Exhaustion</button>
+      <button class="lore-tab" onclick="showRulesTab('resting',this)">Resting</button>
+      <button class="lore-tab" onclick="showRulesTab('spellcasting',this)">Spellcasting</button>
+      <button class="lore-tab" onclick="showRulesTab('movement',this)">Movement</button>
+      <button class="lore-tab" onclick="showRulesTab('other',this)">Other Rules</button>
+    </div>
+    <div id="rules-content" style="margin-top:18px"></div>
+  `);
+  showRulesTab('combat', document.querySelector('#rules-tabs .lore-tab'));
+}
+
+window.showRulesTab=function(tab,btn){
+  document.querySelectorAll('#rules-tabs .lore-tab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const el=document.getElementById('rules-content');
+  const R=RULES_REFERENCE;
+  if(tab==='combat'){
+    el.innerHTML=`<div class="rules-grid">${R.combat_actions.map(a=>`
+      <div class="rule-card">
+        <div class="rule-name">${a.name}</div>
+        <p class="rule-desc">${a.desc}</p>
+      </div>
+    `).join('')}</div>`;
+  } else if(tab==='conditions'){
+    el.innerHTML=`<div class="rules-grid">${CONDITIONS.map(c=>`
+      <div class="rule-card">
+        <div class="rule-name">${c.name}</div>
+        <p class="rule-desc">${c.desc}</p>
+      </div>
+    `).join('')}</div>`;
+  } else if(tab==='exhaustion'){
+    el.innerHTML=`
+      <div class="info-card">
+        <div class="ic-title">Exhaustion Levels</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Each long rest removes one level. 6 levels = death.</p>
+        <table class="rules-table">
+          <thead><tr><th>Level</th><th>Effect</th></tr></thead>
+          <tbody>${R.exhaustion.map(e=>`<tr><td style="text-align:center;font-weight:bold;color:${e.level>=5?'#e74c3c':e.level>=3?'#e67e22':'var(--accent)'}">${e.level}</td><td>${e.effect}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  } else if(tab==='resting'){
+    const {short_rest,long_rest}=R.resting;
+    el.innerHTML=`
+      <div class="info-card" style="margin-bottom:12px">
+        <div class="ic-title">⚡ Short Rest</div>
+        <div class="ic-row"><span class="ic-key">Duration</span><span>${short_rest.duration}</span></div>
+        <p style="color:var(--muted);font-size:13px;margin-top:8px">${short_rest.benefits}</p>
+      </div>
+      <div class="info-card">
+        <div class="ic-title">🌙 Long Rest</div>
+        <div class="ic-row"><span class="ic-key">Duration</span><span>${long_rest.duration}</span></div>
+        <p style="color:var(--muted);font-size:13px;margin-top:8px">${long_rest.benefits}</p>
+        <div class="ic-key" style="margin-top:8px">Interruption:</div>
+        <p style="color:var(--muted);font-size:13px">${long_rest.interruption}</p>
+      </div>`;
+  } else if(tab==='spellcasting'){
+    const sc=R.spellcasting_rules;
+    el.innerHTML=`
+      <div class="rules-grid">
+        <div class="rule-card"><div class="rule-name">Components</div><p class="rule-desc">${sc.components}</p></div>
+        <div class="rule-card"><div class="rule-name">Ranged Spell Attacks</div><p class="rule-desc">${sc.attack_spells}</p></div>
+        <div class="rule-card"><div class="rule-name">Ritual Casting</div><p class="rule-desc">${sc.ritual_casting}</p></div>
+        <div class="rule-card"><div class="rule-name">Counterspelling</div><p class="rule-desc">${sc.counterspelling}</p></div>
+        <div class="rule-card"><div class="rule-name">Concentration</div><p class="rule-desc">${R.concentration.desc}<br><br><strong>Damage:</strong> ${R.concentration.damage_rules}<br><br><strong>Other:</strong> ${R.concentration.breaking}</p></div>
+      </div>`;
+  } else if(tab==='movement'){
+    const mv=R.movement;
+    el.innerHTML=`
+      <div class="rules-grid">
+        <div class="rule-card"><div class="rule-name">Difficult Terrain</div><p class="rule-desc">${mv.difficult_terrain}</p></div>
+        <div class="rule-card"><div class="rule-name">Climbing & Swimming</div><p class="rule-desc">${mv.climbing_swimming}</p></div>
+        <div class="rule-card"><div class="rule-name">Jumping</div><p class="rule-desc">${mv.jumping}</p></div>
+        <div class="rule-card"><div class="rule-name">Crawling</div><p class="rule-desc">${mv.crawling}</p></div>
+        <div class="rule-card"><div class="rule-name">Opportunity Attacks</div><p class="rule-desc">${mv.opportunity_attacks}</p></div>
+      </div>`;
+  } else if(tab==='other'){
+    el.innerHTML=`
+      <div class="rules-grid">
+        <div class="rule-card"><div class="rule-name">Cover — Half</div><p class="rule-desc">${R.cover.half_cover}</p></div>
+        <div class="rule-card"><div class="rule-name">Cover — Three-Quarters</div><p class="rule-desc">${R.cover_3q.desc}</p></div>
+        <div class="rule-card"><div class="rule-name">Cover — Full</div><p class="rule-desc">${R.cover_full.desc}</p></div>
+        <div class="rule-card"><div class="rule-name">Surprise</div><p class="rule-desc">${R.surprise.desc}<br><br><strong>Determining Surprise:</strong> ${R.surprise.determining}</p></div>
+        <div class="rule-card"><div class="rule-name">Death Saving Throws</div><p class="rule-desc">${R.death_saves.desc}<br><br><strong>Damage at 0 HP:</strong> ${R.death_saves.damage}<br><br><strong>Stabilizing:</strong> ${R.death_saves.stabilizing}</p></div>
+        <div class="rule-card"><div class="rule-name">Critical Hits</div><p class="rule-desc">${R.critical_hits.desc}<br><br><em>${R.critical_hits.optional_fumbles}</em></p></div>
+        <div class="rule-card"><div class="rule-name">Flanking (Optional)</div><p class="rule-desc">${R.flanking.optional_rule}</p></div>
+      </div>`;
+  }
 };
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
