@@ -287,6 +287,158 @@ function genWildemount(subtype='xhorhas_wastes') {
 
 // ── NPC Generator ─────────────────────────────────────────────────────────────
 
+// ── NPC detail tables ─────────────────────────────────────────────────────────
+
+const _NPC_APPEARANCE = [
+  'weathered skin and a permanent squint from years in harsh light, a scar across the chin from a fight they won',
+  'tall and angular with unusually still hands and the habit of standing sideways in doorways',
+  'stocky build, close-cropped hair going grey at the temples, ink stains on the right hand that never fully wash out',
+  'a slight limp on the left side, otherwise moves with the deliberate economy of someone trained to conserve energy',
+  'expressive face that cycles through twelve emotions before settling on the one they meant to show',
+  'remarkable posture — military straight, never relaxes, blinks less than average',
+  'compact and quick, the kind of person who finds a clear sightline to every exit without thinking about it',
+  'old burn scarring from the wrist to the elbow, never mentioned, never hidden',
+  'striking eyes — the kind people comment on, which the NPC finds exhausting',
+  'perpetually overdressed for any given situation, or perpetually underdressed, never in between',
+  'calloused hands that don\'t match the rest of their appearance',
+  'a distinctive piece of jewelry they touch when lying or under stress',
+  'moves like they\'re always slightly behind the beat of the room — observing before participating',
+  'taller than expected, with the social habit of making themselves smaller in conversation',
+  'a voice that doesn\'t match the face — too deep, too light, too confident, too young',
+];
+
+const _NPC_VOICES = [
+  'speaks in complete, precise sentences; never uses contractions; full stops are audible',
+  'low and unhurried — every sentence lands like it was considered first',
+  'rapid and layered; three thoughts running at once and only two of them make it out',
+  'formal in phrasing but warm in tone; was educated somewhere else',
+  'economical to the edge of rudeness, then suddenly expansive when something interests them',
+  'uses silence deliberately — pauses where other people would fill',
+  'cheerful affect that doesn\'t reach the eyes',
+  'a particular regional accent they can\'t or won\'t suppress',
+  'speaks more quietly when agitated, not louder; people who know them read this as danger',
+  'changes register completely depending on who they\'re speaking to — not dishonest, just adaptive',
+  'dry, with a habit of framing observations as questions they already know the answer to',
+  'slightly too formal for the situation, like they memorized a different script',
+];
+
+const _NPC_IDEALS = [
+  'Information is power and information should be free — eventually',
+  'Loyalty to those who earn it is the only thing worth having',
+  'The law is a framework; the spirit of it matters more than the letter',
+  'Survival first. Principles after. In that order, without apology',
+  'There are no clean hands in this world, only varying degrees of compromise',
+  'The weak need protecting; no one else is going to do it',
+  'Knowledge for its own sake, regardless of what it costs',
+  'Peace — not as weakness but as the hardest work there is',
+  'Debts must be settled; that goes both ways',
+  'Change from within, because the alternative is burning it down',
+  'The truth is the truth regardless of who\'s inconvenienced by it',
+  'Family — blood or chosen — is the only answer to any question that matters',
+];
+
+const _NPC_FLAWS = [
+  'cannot admit they\'re wrong in the moment — will acknowledge it later, alone, and never say so',
+  'trusts too readily once the initial suspicion is overcome',
+  'has a category of people they\'ve written off and will not revisit that conclusion',
+  'underestimates how intimidating they are to people who don\'t know them',
+  'collects obligations that eventually outweigh resources',
+  'a past decision they\'d undo if they could, and the way it occasionally surfaces at the wrong moment',
+  'overconfidence in a specific type of situation they have a history of misjudging',
+  'a temper on a long fuse that burns very hot when it finally reaches the end',
+  'difficulty asking for help even when it would obviously solve the problem',
+  'periodic paralysis at exactly the wrong moment when the stakes are too high',
+  'a vice — drink, gambling, something — that they have under control except when they don\'t',
+  'a grudge they\'ve been carrying for years that occasionally makes decisions for them',
+];
+
+const _NPC_BONDS = [
+  'a person — alive or dead — whose judgment they still measure themselves against',
+  'a place they will never name to strangers but return to in their thoughts when things are bad',
+  'a promise made under bad circumstances that they\'ve kept past all reason',
+  'a piece of work — a project, a cause, something built — that cannot be abandoned',
+  'someone who depends on them who doesn\'t know the full cost of that dependency',
+  'a debt of loyalty to a person or organization that complicates everything else',
+  'a mistake they\'re still making right by incremental acts',
+  'a truth they know that they\'ve never told the person who needs to hear it',
+];
+
+const _NPC_SECRETS = [
+  'is informing on the faction they\'re affiliated with — not for money, for reasons they consider legitimate',
+  'was responsible for an event they\'ve let someone else carry the blame for; the other person doesn\'t know',
+  'is not who they say they are; the real identity is complicated but not malicious',
+  'knows where something important is — an item, a person, a document — and has decided not to act on it',
+  'owes a debt to someone they have reason to fear, and the repayment terms haven\'t been named yet',
+  'was present when something went wrong that they\'ve never fully disclosed; the details matter',
+  'has been in contact with a group they publicly have no connection to',
+  'a relationship — past or ongoing — that would change how people read their current position',
+  'knows something about the party that the party doesn\'t know about themselves',
+  'has a contingency plan that would surprise everyone who thinks they know them',
+  'has been dying slowly and has decided not to let it change the work',
+  'believes something true that, if spoken aloud, would end the current equilibrium',
+];
+
+const _NPC_GOALS = [
+  'resolve one specific situation before it becomes someone else\'s problem',
+  'locate a person who has been missing for too long without enough concern from the people who should care',
+  'obtain a piece of information that would settle a question they\'ve been living with for years',
+  'make a decision they\'ve been deferring and live with the consequences',
+  'get out — of a city, a faction, a role, a relationship — cleanly and without leaving a trail',
+  'protect something or someone without the thing or person knowing they need protection',
+  'complete a piece of work before circumstances make it impossible',
+  'find out if a particular person can be trusted before having to act as though they can',
+  'repay a debt — material, moral, or personal — that\'s been outstanding too long',
+  'confirm whether they\'re being watched and by whom',
+];
+
+const _NPC_SESSION_HOOKS = [
+  'will trade information for a specific favor they won\'t explain until the party agrees',
+  'has been watching the party without their knowledge and makes a calculated introduction',
+  'is in immediate danger from something they brought on themselves and need help they\'re reluctant to ask for',
+  'possesses something the party needs and doesn\'t know its value yet',
+  'will offer work — real work, paid work — if the party can prove they\'re not agents of a specific faction',
+  'has a message for someone the party has met and uses this as an opening',
+  'is at a location the party arrives at for a different reason and their presence there is not coincidental',
+  'needs a favor done quietly and is prepared to pay in something other than gold',
+  'is conducting surveillance on the same location or target the party is interested in; interests may align',
+  'will become relevant in exactly the circumstance the party is currently trying to avoid',
+];
+
+const _NPC_COMBAT_STYLE = {
+  Fighter:    'Engages directly; reads terrain for chokepoints; targets the healer first if any',
+  Wizard:     'Opens with a crowd-control spell, falls back immediately; concentrates hard on escape',
+  Rogue:      'Never in a fair fight if they can help it; waits for advantage; prioritizes disabling over killing',
+  Cleric:     'Buffs allies before engaging; uses healing tactically not reactively; last to fall if possible',
+  Ranger:     'Prefers distance; repositions every round; has prepared the terrain in advance if possible',
+  Paladin:    'Anchors the front line; calls out the most dangerous target and moves toward it',
+  Barbarian:  'Charges the center; ignores damage; fixates on the biggest threat present',
+  Druid:      'Wild shapes immediately if pressed; uses the environment; avoids direct confrontation',
+  Bard:       'Stays mobile; disrupts rather than damages; has an escape route pre-planned',
+  Warlock:    'Consistent ranged pressure; repositions when threatened; saves big spells for genuine emergencies',
+  Sorcerer:   'Explosive opening, then cautious; hates being surprised; uses Subtle Spell to hide casting',
+  Monk:       'Lightning first strike; uses Stunning Strike when it counts; never stays in one place',
+  Artificer:  'Gadgets first; keeps distance; treats the fight as a problem to be solved',
+  'Echo Knight': 'Splits threat across echo and self; baits attacks; uses the echo to flank',
+  Chronurgist:'Extremely dangerous if given preparation time; tries to force the first action, controls sequence',
+  Graviturgist:'Controls the battlefield geometry; the creature that doesn\'t seem like the threat is the one to watch',
+};
+
+const _NPC_EQUIPMENT = {
+  Fighter:   ['longsword or battleaxe','chain mail or plate armor','shield (often)','a second weapon and throwing axes'],
+  Wizard:    ['spellbook (well-worn, annotated in margins)','arcane focus or wand','dagger as a last resort','component pouch'],
+  Rogue:     ['two short blades or a rapier','leather armor','thieves\' tools always on person','a small concealed weapon'],
+  Cleric:    ['mace or warhammer','chain mail or scale mail','holy symbol','healer\'s kit'],
+  Ranger:    ['longbow with varied ammunition','shortsword backup','studded leather','a specific field kit for their terrain'],
+  Paladin:   ['longsword or glaive','half plate or plate','holy symbol','a personal token with meaning'],
+  Barbarian: ['greataxe or maul','no armor by preference (or hide armor)','javelins','something taken from a defeated enemy'],
+  Druid:     ['staff or scimitar','natural armor or hide','wooden focus','herbalism kit and specific gathered materials'],
+  Bard:      ['rapier or hand crossbow','light armor','instrument (always)','a small journal they\'re cagey about'],
+  Warlock:   ['eldritch focus','dark clothing','a blade they barely know how to use','a pact-related item they don\'t discuss'],
+  Sorcerer:  ['arcane focus (distinctive)','traveling clothes or light armor','a very small backup weapon','something from their bloodline origin'],
+  Monk:      ['unarmed (preferred)','shortsword or staff backup','simple clothing that doesn\'t restrict movement','nothing unnecessary'],
+  Artificer: ['a custom tool or infused item','medium armor with modifications','hand crossbow or light weapon','a satchel of components'],
+};
+
 function generateNPC(opts={}) {
   const race  = opts.race  || pick(RACES);
   const cls   = opts.cls   || pick(CLASSES);
@@ -295,12 +447,15 @@ function generateNPC(opts={}) {
   const regionKey = opts.region || pick(Object.keys(REGIONS));
   const region = REGIONS[regionKey];
 
-  const regionFactions = FACTIONS.filter(f=>f.region===regionKey);
-  const faction = pick(regionFactions.length ? regionFactions : FACTIONS);
+  const regionFactions = FACTIONS.filter(f=>f.region===regionKey||f.region===regionKey);
+  const faction = opts.faction
+    ? FACTIONS.find(f=>f.name===opts.faction)||pick(FACTIONS)
+    : pick(regionFactions.length ? regionFactions : FACTIONS);
 
+  const allCultures = Object.keys(NAMES);
   const cultureMap = {'Western Wynandir':'Zemnian','Xhorhas':'Xhorhasian','Menagerie Coast':'Coastal','Greying Wildlands':Math.random()<0.5?'Zemnian':'Coastal','Eiselcross':'Zemnian'};
-  const culture = cultureMap[regionKey] || 'Zemnian';
-  const names = NAMES[culture];
+  const culture = cultureMap[regionKey] || pick(allCultures);
+  const names = NAMES[culture] || NAMES[allCultures[0]];
   const isFemale = Math.random() < 0.5;
   const firstName = pick(isFemale ? names.first_f : names.first_m);
   const lastName = pick(names.last);
@@ -310,24 +465,91 @@ function generateNPC(opts={}) {
   if (prime && stats[prime]<14) stats[prime]=14+Math.floor(Math.random()*4);
 
   const hd = CLASS_HIT_DICE[cls]||8;
-  const maxHp = Math.max(1,(hd+statMod(stats.CON))*level);
+  const conMod = statMod(stats.CON);
+  const maxHp = Math.max(1, hd + conMod + (level-1) * (Math.floor(hd/2)+1+conMod));
   const acBase = 10+statMod(stats.DEX);
-  const ac = cls==='Fighter'||cls==='Paladin'?acBase+3:cls==='Monk'?acBase+statMod(stats.WIS):acBase;
+  const ac = cls==='Fighter'||cls==='Paladin'?acBase+4:cls==='Monk'?acBase+statMod(stats.WIS):cls==='Barbarian'?acBase+statMod(stats.CON):acBase;
   const profBonus = Math.ceil(level/4)+1;
+  const initiative = statMod(stats.DEX);
+  const speed = cls==='Monk'?30+10*Math.floor(level/4):30;
 
-  const bg = pick(BACKGROUNDS)
-    .replace('{faction}',faction.name)
-    .replace('{location}',pick(region.locations));
+  // Saving throw proficiencies (class primary saves)
+  const saveProfMap = {Fighter:['STR','CON'],Wizard:['INT','WIS'],Rogue:['DEX','INT'],Cleric:['WIS','CHA'],Ranger:['STR','DEX'],Paladin:['WIS','CHA'],Barbarian:['STR','CON'],Druid:['INT','WIS'],Bard:['DEX','CHA'],Warlock:['WIS','CHA'],Sorcerer:['CON','CHA'],Monk:['STR','DEX'],Artificer:['CON','INT'],'Echo Knight':['STR','CON'],Chronurgist:['WIS','INT'],Graviturgist:['CON','STR']};
+  const saveProfs = saveProfMap[cls]||['STR','CON'];
+  const saves = {};
+  ['STR','DEX','CON','INT','WIS','CHA'].forEach(k=>{
+    saves[k] = statMod(stats[k]) + (saveProfs.includes(k)?profBonus:0);
+  });
+
+  // Skills (2 primary from class + 2 random)
+  const classSkillMap = {Fighter:['Athletics','Intimidation'],Wizard:['Arcana','History'],Rogue:['Stealth','Sleight of Hand'],Cleric:['Religion','Medicine'],Ranger:['Perception','Survival'],Paladin:['Persuasion','Religion'],Barbarian:['Athletics','Survival'],Druid:['Nature','Perception'],Bard:['Persuasion','Performance'],Warlock:['Arcana','Deception'],Sorcerer:['Arcana','Persuasion'],Monk:['Acrobatics','Stealth'],Artificer:['Investigation','Arcana'],'Echo Knight':['Athletics','Perception'],Chronurgist:['Arcana','History'],Graviturgist:['Arcana','Athletics']};
+  const allSkills=['Athletics','Acrobatics','Stealth','Arcana','History','Nature','Religion','Insight','Medicine','Perception','Persuasion','Deception','Intimidation','Performance','Survival','Sleight of Hand','Investigation'];
+  const classSkills = classSkillMap[cls]||['Perception','Insight'];
+  const bonusSkills = pick(allSkills.filter(s=>!classSkills.includes(s)));
+  const trainedSkills = [...classSkills, bonusSkills];
+
+  const bg = pick(BACKGROUNDS).replace('{faction}',faction.name).replace('{location}',pick(region.locations));
+
+  // Build faction role description
+  const factionRoles = {
+    'Dwendalian Empire':['field officer with independent mandate','embedded intelligence asset with civilian cover','liaison between military and civilian governance','press-gang supervisor quietly questioning the work'],
+    'Cerberus Assembly':['junior researcher with clearance they probably shouldn\'t have','field operative who knows too many results without understanding the methodology','acquisitions agent: find it, bring it back, don\'t ask','senior mage managing three ongoing projects and one they haven\'t reported'],
+    'Kryn Dynasty':['consecuted warrior on a long patrol far from home','embassy functionary in hostile territory','dunamancer in the middle of something theoretical that became practical','Umavi escort trying to keep a recently reborn soul oriented'],
+    'Cobalt Soul':['expositor following a corruption thread that goes higher than expected','archive keeper who found something in the stacks that shouldn\'t be there','itinerant monk building a case one piece of evidence at a time','senior archivist who knows what everyone is looking for and why'],
+    'The Revelry':['crew member with too much initiative','navigator with a private arrangement on the side','boarding specialist between contracts and looking for work','captain of a small vessel with one complicated rule about who they won\'t take jobs against'],
+    'The Myriad':['courier who knows the route but not the contents','debt collector with ethical limits that keep getting tested','fixer in a city that doesn\'t officially acknowledge their existence','lieutenant managing an operation that has grown past their instructions'],
+    'Clovis Concord':['inspector who\'s found something a merchant doesn\'t want found','trade arbitrator whose neutrality is being purchased from both sides','port administrator with an excellent memory for faces','Zhelezo officer running down a smuggling lead that keeps branching'],
+    'default':['freelance operative with a current contract and a past they don\'t advertise','local expert consulted when official channels won\'t do','retired professional reluctantly back in the field','independent agent with connections to more factions than they\'d admit'],
+  };
+  const rolePool = factionRoles[faction.name]||factionRoles.default;
+  const factionRole = pick(rolePool);
+
+  // Connections
+  const connTemplates = [
+    `owes a significant favor to someone in ${pick(region.locations)} who hasn\'t called it in yet`,
+    `was trained by or served under a person now on the opposite side of something important`,
+    `has a contact inside ${pick(FACTIONS.filter(f=>f.name!==faction.name).map(f=>f.name)||[faction.name])} that neither side officially acknowledges`,
+    `knows a secret about a prominent ${faction.name} figure that they\'ve chosen not to use`,
+    `has family in ${pick(region.locations)} whose safety constrains what they\'re willing to do`,
+    `is owed a debt by someone in a position to be useful or dangerous depending on the timing`,
+    `worked with someone who became an enemy through circumstance rather than choice`,
+    `has an established identity in ${pick(region.locations)} that exists for professional reasons`,
+  ];
 
   return {
-    id:uuid(),
-    name:`${firstName} ${lastName}`,
-    race, class:cls, level, alignment,
-    region:regionKey, faction:faction.name, culture,
-    stats, maxHp, hp:maxHp, ac, profBonus,
-    personality:pick(PERSONALITIES),
-    background:bg,
-    created:Date.now(),
+    id: uuid(),
+    created: Date.now(),
+
+    // Identity
+    name: `${firstName} ${lastName}`,
+    race, class: cls, level, alignment,
+    region: regionKey, faction: faction.name, culture,
+    isFemale,
+
+    // Stats
+    stats, saves, maxHp, hp: maxHp, ac, profBonus, initiative, speed,
+    trainedSkills,
+
+    // Character
+    appearance: pick(_NPC_APPEARANCE),
+    voice: pick(_NPC_VOICES),
+    personality: pick(PERSONALITIES),
+    ideal: pick(_NPC_IDEALS),
+    flaw: pick(_NPC_FLAWS),
+    bond: pick(_NPC_BONDS),
+    secret: pick(_NPC_SECRETS),
+    goal: pick(_NPC_GOALS),
+    background: bg,
+    factionRole,
+    connection: pick(connTemplates),
+
+    // Tactical
+    combatStyle: _NPC_COMBAT_STYLE[cls] || 'Fights practically; prioritizes survival over heroics',
+    equipment: _NPC_EQUIPMENT[cls] || ['a weapon appropriate to their class','traveling gear','nothing they can\'t leave behind'],
+
+    // Session use
+    sessionHook: pick(_NPC_SESSION_HOOKS),
+    dmNote: `Their secret (${pick(_NPC_SECRETS).slice(0,70)}…) should surface if the party spends real time with them. The flaw ("${pick(_NPC_FLAWS).slice(0,50)}…") is the lever.`,
   };
 }
 

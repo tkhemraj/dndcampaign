@@ -1237,14 +1237,22 @@ function renderNPCs() {
   const camp=getActiveCampaign();
   const factionOpts=['Any',...FACTIONS.map(f=>f.name)].map(f=>`<option>${f}</option>`).join('');
   const regionOpts=['Any',...Object.keys(REGIONS)].map(r=>`<option>${r}</option>`).join('');
+  const raceOpts=['Any',...RACES].map(r=>`<option>${r}</option>`).join('');
+  const classOpts=['Any',...CLASSES].map(c=>`<option>${c}</option>`).join('');
   const npcs=camp?.npcs||[];
 
   setContent(`
-    <div class="view-header"><h1>🧙 NPC Generator</h1></div>
-    <div class="gen-controls">
+    <div class="view-header">
+      <h1>🧙 NPC Generator</h1>
+      <p class="view-sub">Full character briefs — appearance, personality, secrets, tactics, session hooks</p>
+    </div>
+    <div class="gen-controls" style="flex-wrap:wrap">
       <div class="gen-field"><label class="form-label">Faction</label><select id="npc-faction" class="form-select">${factionOpts}</select></div>
       <div class="gen-field"><label class="form-label">Region</label><select id="npc-region" class="form-select">${regionOpts}</select></div>
-      <button class="btn btn-primary" onclick="doGenerateNPC()">Generate NPC</button>
+      <div class="gen-field"><label class="form-label">Race</label><select id="npc-race" class="form-select">${raceOpts}</select></div>
+      <div class="gen-field"><label class="form-label">Class</label><select id="npc-class" class="form-select">${classOpts}</select></div>
+      <div class="gen-field"><label class="form-label">Level</label><input id="npc-level" class="form-input" type="number" min="1" max="20" value="" placeholder="Any" style="width:70px"></div>
+      <button class="btn btn-primary" onclick="doGenerateNPC()">⚡ Generate NPC</button>
     </div>
     <div id="npc-result"></div>
     <hr class="section-hr">
@@ -1256,27 +1264,37 @@ function renderNPCs() {
 }
 
 function npcListRow(n) {
-  return `<div class="list-row" onclick="showNPCDetail('${n.id}')">
-    <span class="list-name">${n.name}</span>
-    <span class="list-meta">${n.race} ${n.class} ${n.level} · ${n.faction}</span>
+  const lvlLabel = n.level ? `Lvl ${n.level}` : '';
+  return `<div class="list-row" style="cursor:pointer" onclick="expandNPCRow('${n.id}')">
+    <div style="flex:1;min-width:0">
+      <span class="list-name">${n.name}</span>
+      <div class="list-meta">${n.race} ${n.class} ${lvlLabel} · ${n.alignment} · ${n.faction}</div>
+      <div class="list-meta" style="font-style:italic;margin-top:2px">${(n.factionRole||'').slice(0,70)}</div>
+    </div>
     ${getActiveCampaign()?`<button class="btn-icon btn-danger-icon" onclick="event.stopPropagation();deleteNPC('${n.id}')">✕</button>`:''}
-  </div>`;
+  </div>
+  <div id="npcrow-${n.id}" style="display:none">${npcFullCard(n,false,true)}</div>`;
 }
+
+window.expandNPCRow=function(id){
+  const el=document.getElementById('npcrow-'+id);
+  if(el) el.style.display=el.style.display==='none'?'block':'none';
+};
 
 window.doGenerateNPC=function(){
   const fval=document.getElementById('npc-faction').value;
   const rval=document.getElementById('npc-region').value;
+  const race=document.getElementById('npc-race').value;
+  const cls=document.getElementById('npc-class').value;
+  const lvlInput=parseInt(document.getElementById('npc-level').value);
   const opts={};
-  if (fval!=='Any') opts.faction=fval;
-  if (rval!=='Any') opts.region=rval;
+  if(fval!=='Any') opts.faction=fval;
+  if(rval!=='Any') opts.region=rval;
+  if(race!=='Any') opts.race=race;
+  if(cls!=='Any') opts.cls=cls;
+  if(lvlInput>=1) opts.level=lvlInput;
   const npc=generateNPC(opts);
-  document.getElementById('npc-result').innerHTML=npcCard(npc,true);
-};
-
-window.showNPCDetail=function(id){
-  const camp=getActiveCampaign(); if(!camp) return;
-  const npc=camp.npcs.find(n=>n.id===id); if(!npc) return;
-  showModal(npc.name, npcCardBody(npc),[{label:'Close',action:'closeModal()'}]);
+  document.getElementById('npc-result').innerHTML=npcFullCard(npc,true);
 };
 
 window.saveNPC=function(data){
@@ -1292,28 +1310,108 @@ window.deleteNPC=function(id){
   camp.npcs=camp.npcs.filter(n=>n.id!==id); saveState(); renderNPCs();
 };
 
-function npcCard(n, showSave=false) {
-  return `<div class="stat-block">${npcCardBody(n)}${showSave&&getActiveCampaign()?`<button class="btn btn-primary btn-sm" onclick="saveNPC('${encodeURIComponent(JSON.stringify(n))}')">Save NPC</button>`:''}
-    <button class="btn btn-secondary btn-sm" onclick="doGenerateNPC()">Re-generate</button></div>`;
-}
+function npcFullCard(n, showSave=false, compact=false) {
+  const s=n.stats||{};
+  const sv=n.saves||{};
+  const signed=v=>(v>=0?'+':'')+v;
+  const statBlock=['STR','DEX','CON','INT','WIS','CHA'].map(k=>`
+    <div class="npc-stat-cell">
+      <div class="npc-stat-val">${s[k]||10}</div>
+      <div class="npc-stat-mod">${signedMod(s[k]||10)}</div>
+      <div class="npc-stat-key">${k}</div>
+      <div class="npc-stat-save" title="Save">${signed(sv[k]||0)}</div>
+    </div>`).join('');
 
-function npcCardBody(n) {
-  const s=n.stats;
-  return `
-    <div class="sb-name">${n.name}</div>
-    <div class="sb-sub">${n.race} ${n.class} ${n.level} · ${n.alignment}</div>
-    <div class="sb-divider"></div>
-    <div class="sb-row"><span class="sb-key">Region</span><span>${n.region}</span></div>
-    <div class="sb-row"><span class="sb-key">Faction</span><span>${n.faction}</span></div>
-    <div class="sb-row"><span class="sb-key">HP</span><span>${n.maxHp}</span><span class="sb-key" style="margin-left:16px">AC</span><span>${n.ac}</span><span class="sb-key" style="margin-left:16px">Prof</span><span>+${n.profBonus}</span></div>
-    <div class="sb-divider"></div>
-    <div class="sb-stats">
-      ${['STR','DEX','CON','INT','WIS','CHA'].map(k=>`<div class="sb-stat"><div class="sb-sval">${s[k]}</div><div class="sb-smod">${signedMod(s[k])}</div><div class="sb-skey">${k}</div></div>`).join('')}
+  const skills=(n.trainedSkills||[]).map(sk=>`<span class="npc-skill-tag">${sk}</span>`).join('');
+  const equip=Array.isArray(n.equipment)?n.equipment.map(e=>`<li>${e}</li>`).join(''):'';
+
+  const saveBtn=showSave&&getActiveCampaign()
+    ?`<button class="btn btn-primary btn-sm" onclick="saveNPC('${encodeURIComponent(JSON.stringify(n))}')">💾 Save NPC</button>`:'';
+
+  return `<div class="npc-card${compact?' npc-card-compact':''}">
+
+    <div class="npc-header">
+      <div>
+        <div class="npc-name">${n.name}</div>
+        <div class="npc-sub">${n.race} ${n.class} ${n.level?'Lvl '+n.level:''} · ${n.alignment}</div>
+        <div class="npc-chips">
+          <span class="quest-chip">${n.faction}</span>
+          <span class="quest-chip">${n.region}</span>
+          <span class="quest-chip">${n.culture}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;align-items:flex-start">
+        ${saveBtn}
+        ${showSave?`<button class="btn btn-secondary btn-sm" onclick="doGenerateNPC()">↻ Re-roll</button>`:''}
+      </div>
     </div>
-    <div class="sb-divider"></div>
-    <div class="sb-row"><span class="sb-key">Personality</span><span style="font-style:italic">${n.personality}</span></div>
-    <div class="sb-row" style="margin-top:6px"><span class="sb-key">Background</span><span style="font-style:italic">${n.background}</span></div>
-  `;
+
+    <div class="npc-combat-bar">
+      <div class="npc-combat-stat"><div class="npc-combat-val">${n.maxHp||'?'}</div><div class="npc-combat-key">HP</div></div>
+      <div class="npc-combat-stat"><div class="npc-combat-val">${n.ac||10}</div><div class="npc-combat-key">AC</div></div>
+      <div class="npc-combat-stat"><div class="npc-combat-val">+${n.profBonus||2}</div><div class="npc-combat-key">Prof</div></div>
+      <div class="npc-combat-stat"><div class="npc-combat-val">${signed(n.initiative||0)}</div><div class="npc-combat-key">Init</div></div>
+      <div class="npc-combat-stat"><div class="npc-combat-val">${n.speed||30}ft</div><div class="npc-combat-key">Speed</div></div>
+    </div>
+
+    <div class="npc-stat-row">${statBlock}</div>
+    ${skills?`<div class="npc-skills-row"><span class="npc-skills-label">Trained:</span>${skills}</div>`:''}
+
+    <div class="npc-body">
+
+      <div class="npc-section">
+        <div class="npc-section-title">👁 Appearance & Voice</div>
+        <p class="npc-text">${n.appearance||''}</p>
+        <p class="npc-text" style="margin-top:6px;font-style:italic">${n.voice||''}</p>
+      </div>
+
+      <div class="npc-section">
+        <div class="npc-section-title">🎭 Character</div>
+        <div class="npc-trait-grid">
+          <div class="npc-trait"><div class="npc-trait-key">Personality</div><div class="npc-trait-val">${n.personality||''}</div></div>
+          <div class="npc-trait"><div class="npc-trait-key">Ideal</div><div class="npc-trait-val">${n.ideal||''}</div></div>
+          <div class="npc-trait npc-trait-flaw"><div class="npc-trait-key">Flaw</div><div class="npc-trait-val">${n.flaw||''}</div></div>
+          <div class="npc-trait"><div class="npc-trait-key">Bond</div><div class="npc-trait-val">${n.bond||''}</div></div>
+        </div>
+      </div>
+
+      <div class="npc-section">
+        <div class="npc-section-title">📖 Background & Role</div>
+        <p class="npc-text">${n.background||''}</p>
+        <p class="npc-text" style="margin-top:6px"><strong style="color:var(--accent)">${n.faction}:</strong> ${n.factionRole||''}</p>
+        <p class="npc-text" style="margin-top:6px">🔗 ${n.connection||''}</p>
+      </div>
+
+      <div class="npc-two-col">
+        <div class="npc-section">
+          <div class="npc-section-title">🎯 Current Goal</div>
+          <p class="npc-text">${n.goal||''}</p>
+        </div>
+        <div class="npc-section npc-secret-block">
+          <div class="npc-section-title">🔒 Secret <span class="quest-dm-tag">DM</span></div>
+          <p class="npc-text">${n.secret||''}</p>
+        </div>
+      </div>
+
+      <div class="npc-two-col">
+        <div class="npc-section">
+          <div class="npc-section-title">⚔ Combat Tactics</div>
+          <p class="npc-text">${n.combatStyle||''}</p>
+          ${equip?`<ul class="npc-equip-list">${equip}</ul>`:''}
+        </div>
+        <div class="npc-section">
+          <div class="npc-section-title">🪝 Session Hook</div>
+          <p class="npc-text">${n.sessionHook||''}</p>
+        </div>
+      </div>
+
+      <div class="npc-section npc-dm-note">
+        <div class="npc-section-title">🎲 DM Notes <span class="quest-dm-tag">DM</span></div>
+        <p class="npc-text">${n.dmNote||''}</p>
+      </div>
+
+    </div>
+  </div>`;
 }
 
 // ── Quests ────────────────────────────────────────────────────────────────────

@@ -303,6 +303,44 @@
     .name-list { display: flex; flex-wrap: wrap; gap: 8px; }
     .name-item { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 6px 12px; border-radius: 6px; }
 
+    /* ── NPC Cards ── */
+    .npc-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+    .npc-card-compact { margin: 0 0 4px; border-radius: 0 0 10px 10px; border-top: none; }
+    .npc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 16px 20px 12px; background: rgba(255,255,255,.03); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .npc-name { font-size: 18px; font-weight: 900; color: var(--text); margin-bottom: 3px; }
+    .npc-sub { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .npc-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .npc-combat-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+    .npc-combat-stat { flex: 1; text-align: center; padding: 8px 4px; border-right: 1px solid var(--border2); }
+    .npc-combat-stat:last-child { border-right: none; }
+    .npc-combat-val { font-size: 16px; font-weight: 800; color: var(--text); }
+    .npc-combat-key { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+    .npc-stat-row { display: flex; border-bottom: 1px solid var(--border); }
+    .npc-stat-cell { flex: 1; text-align: center; padding: 8px 4px; border-right: 1px solid var(--border2); }
+    .npc-stat-cell:last-child { border-right: none; }
+    .npc-stat-val { font-size: 14px; font-weight: 700; color: var(--text); }
+    .npc-stat-mod { font-size: 13px; color: var(--accent); font-weight: 600; }
+    .npc-stat-key { font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
+    .npc-stat-save { font-size: 10px; color: var(--muted); }
+    .npc-skills-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 14px; border-bottom: 1px solid var(--border); align-items: center; }
+    .npc-skills-label { font-size: 10px; text-transform: uppercase; color: var(--muted); margin-right: 4px; letter-spacing: .04em; }
+    .npc-skill-tag { background: rgba(138,180,248,.1); border: 1px solid rgba(138,180,248,.2); color: var(--accent); font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+    .npc-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+    .npc-section { }
+    .npc-section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: 7px; display: flex; align-items: center; gap: 6px; }
+    .npc-text { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0; }
+    .npc-trait-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .npc-trait { background: rgba(255,255,255,.025); border: 1px solid var(--border2); border-radius: 7px; padding: 9px 11px; }
+    .npc-trait-flaw { border-color: rgba(231,76,60,.25); background: rgba(231,76,60,.04); }
+    .npc-trait-key { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 4px; }
+    .npc-trait-val { font-size: 12px; color: var(--text); line-height: 1.5; }
+    .npc-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 600px) { .npc-two-col { grid-template-columns: 1fr; } .npc-trait-grid { grid-template-columns: 1fr; } }
+    .npc-secret-block { background: rgba(231,76,60,.04); border: 1px solid rgba(231,76,60,.18); border-radius: 8px; padding: 10px 12px; }
+    .npc-equip-list { margin: 8px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; }
+    .npc-equip-list li { font-size: 12px; color: var(--muted); }
+    .npc-dm-note { background: rgba(231,76,60,.04); border: 1px solid rgba(231,76,60,.18); border-radius: 8px; padding: 10px 12px; }
+
     /* ── Quest Cards ── */
     .quest-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
     .quest-card-compact { margin: 0 0 4px; border-radius: 0 0 10px 10px; border-top: none; }
