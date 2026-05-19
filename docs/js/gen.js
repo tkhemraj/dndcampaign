@@ -85,7 +85,7 @@ function genDungeon(subtype='standard') {
       [[r.y+1,r.x+1],[r.y+1,r.x+r.w-2],[r.y+r.h-2,r.x+1],[r.y+r.h-2,r.x+r.w-2]].forEach(([y,x]) => {
         if (y>=0&&y<H&&x>=0&&x<W) grid[y][x]=T.PILLAR;
       });
-    } else if (Math.random()<0.25) { grid[cy][cx]=T.TRAP; }
+    } else if (Math.random()<0.48) { grid[cy][cx]=T.TRAP; }
 
     if (isUnderdark) {
       // Underground pools

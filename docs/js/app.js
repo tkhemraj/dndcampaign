@@ -323,6 +323,16 @@ let _tokenCounts = {player:0, enemy:0, npc:0};
 const TOKEN_COLORS = {player:'#d4a017', enemy:'#c42020', npc:'#1a5bb5'};
 const TOKEN_PFX    = {player:'P', enemy:'M', npc:'N'};
 
+const AVATAR_SETS = {
+  player: ['🧙','⚔️','🏹','🗡️','🛡️','🌿','⚡','📿','🎭','🥊','🔮','🪓'],
+  enemy:  ['👹','💀','🐉','🕷️','🦇','👿','🧟','🐺','🦂','🐍','🦁','🐻'],
+  npc:    ['👴','👵','🧝','🧛','🧜','🧞','🤴','👸','🧑‍🏫','🧑‍⚕️','🧑‍🍳','🎲'],
+};
+let _pendingAvatar = null;
+let _fogCtx = null;
+let _mapHUD = { round:1, counters:[], timers:[] };
+let _timerInterval = null;
+
 function renderMaps() {
   const typeOpts=MAP_TYPES.map(t=>`<option value="${t.value}">${t.label}</option>`).join('');
   const firstType=MAP_TYPES[0];
@@ -341,12 +351,44 @@ function renderMaps() {
       <div class="map-placeholder">Select a type and click Generate Map</div>
     </div>
     <div class="token-toolbar" id="token-toolbar" style="display:none">
-      <span class="token-label">Place token:</span>
-      <button class="token-btn" data-type="player" onclick="setTokenMode('player')">⬤ Player</button>
-      <button class="token-btn" data-type="enemy"  onclick="setTokenMode('enemy')">⬤ Monster</button>
-      <button class="token-btn" data-type="npc"    onclick="setTokenMode('npc')">⬤ NPC</button>
-      <button class="token-btn token-btn-clear" onclick="clearTokens()">✕ Clear</button>
-      <span id="token-hint" class="token-hint"></span>
+      <div class="token-row">
+        <span class="token-label">Place:</span>
+        <button class="token-btn" data-type="player" onclick="setTokenMode('player')">⬤ Player</button>
+        <button class="token-btn" data-type="enemy"  onclick="setTokenMode('enemy')">⬤ Monster</button>
+        <button class="token-btn" data-type="npc"    onclick="setTokenMode('npc')">⬤ NPC</button>
+        <button class="token-btn token-btn-clear" onclick="clearTokens()">✕ Clear</button>
+      </div>
+      <div class="token-row" id="avatar-row" style="display:none">
+        <span class="token-label">Avatar:</span>
+        <div class="avatar-strip" id="avatar-strip"></div>
+      </div>
+      <div class="token-row">
+        <span class="token-label">Fog:</span>
+        <button class="token-btn" id="btn-fog-toggle" onclick="toggleFogEnabled()">🌫 Off</button>
+        <button class="token-btn" data-type="reveal" onclick="setTokenMode('reveal')">☀ Reveal</button>
+        <button class="token-btn" data-type="hide"   onclick="setTokenMode('hide')">☁ Hide</button>
+        <button class="token-btn" onclick="fogRevealAll()" title="Reveal entire map">☀ All</button>
+        <button class="token-btn" onclick="fogResetAll()" title="Hide all floor tiles">☁ Reset</button>
+        <button class="token-btn" id="btn-fog-view" onclick="toggleFogView()">👁 DM View</button>
+      </div>
+      <div class="token-row"><span id="token-hint" class="token-hint"></span></div>
+    </div>
+    <div class="map-hud" id="map-hud" style="display:none">
+      <div class="hud-row">
+        <div class="hud-section">
+          <span class="hud-label">Round</span>
+          <button class="hud-btn" onclick="adjustRound(-1)">−</button>
+          <span class="hud-num" id="hud-round">1</span>
+          <button class="hud-btn" onclick="adjustRound(1)">+</button>
+        </div>
+        <div class="hud-divider"></div>
+        <div id="hud-timers-wrap" class="hud-flex"></div>
+        <div id="hud-counters-wrap" class="hud-flex"></div>
+        <div class="hud-section">
+          <button class="hud-add" onclick="addMapCounter()">+ Counter</button>
+          <button class="hud-add" onclick="addMapTimer()">+ Timer</button>
+        </div>
+      </div>
     </div>
     <div class="map-legend-row" id="map-legend"></div>
   `);
@@ -362,11 +404,25 @@ window.doGenerateMap=function(){
   const type=document.getElementById('map-type').value;
   const sub=document.getElementById('map-sub').value;
   _tokenMode=null; _tokenCounts={player:0,enemy:0,npc:0};
+  _pendingAvatar=null; _fogCtx=null;
+  if (_timerInterval) { clearInterval(_timerInterval); _timerInterval=null; }
+  _mapHUD = { round:1, counters:[], timers:[] };
   document.querySelectorAll('.token-btn[data-type]').forEach(b=>b.classList.remove('active'));
+  const avatarRow=document.getElementById('avatar-row');
+  if (avatarRow) avatarRow.style.display='none';
   _currentMap=generateMap(type,sub);
   drawMapCanvas(_currentMap);
   document.getElementById('btn-export').style.display='';
   document.getElementById('token-toolbar').style.display='';
+  document.getElementById('map-hud').style.display='';
+  const hudRound=document.getElementById('hud-round');
+  if (hudRound) hudRound.textContent='1';
+  document.getElementById('hud-timers-wrap').innerHTML='';
+  document.getElementById('hud-counters-wrap').innerHTML='';
+  const fogBtn=document.getElementById('btn-fog-toggle');
+  if (fogBtn) { fogBtn.textContent='🌫 Off'; fogBtn.classList.remove('active'); }
+  const viewBtn=document.getElementById('btn-fog-view');
+  if (viewBtn) { viewBtn.textContent='👁 DM View'; viewBtn.classList.remove('active'); }
   const btnSave=document.getElementById('btn-save-map');
   if (btnSave) btnSave.style.display='';
 };
@@ -416,6 +472,13 @@ function drawMapCanvas(mapData) {
   ovCanvas.width = W*TS; ovCanvas.height = H*TS;
   ovCanvas.style.cssText = 'position:absolute;top:0;left:0;cursor:crosshair;';
   scroll.appendChild(ovCanvas);
+
+  const fogCv = document.createElement('canvas');
+  fogCv.id = 'fog-canvas';
+  fogCv.width = W*TS; fogCv.height = H*TS;
+  fogCv.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+  scroll.appendChild(fogCv);
+  _fogCtx = fogCv.getContext('2d');
 
   const ctx = canvas.getContext('2d');
   const ovCtx = ovCanvas.getContext('2d');
@@ -536,6 +599,10 @@ function drawMapCanvas(mapData) {
   const crSz = Math.max(26, Math.min(W,H)*TS*0.048);
   _drawCompassRose(ctx, W*TS - crSz - 14, H*TS - crSz - 14, crSz, pal);
 
+  // Fog init + first render
+  initFog(mapData);
+  renderFog(_fogCtx, mapData, W, H, TS);
+
   const legendEl=document.getElementById('map-legend');
   if (legendEl) legendEl.innerHTML=[
     [pal.void,'Wall'],[pal.room,'Room'],[pal.corr,'Corridor'],['#5a2e10','Door'],
@@ -545,7 +612,7 @@ function drawMapCanvas(mapData) {
   // ── Token overlay ─────────────────────────────────────────────────────────────
   _drawTokens(ovCtx,mapData.tokens,W,H,TS,null);
 
-  let _drag=null;
+  let _drag=null, _fogPaint=false;
   function cvXY(e){
     const rc=ovCanvas.getBoundingClientRect();
     const px=e.clientX-rc.left, py=e.clientY-rc.top;
@@ -553,23 +620,40 @@ function drawMapCanvas(mapData) {
   }
   ovCanvas.addEventListener('mousedown',e=>{
     const {px,py,tx,ty}=cvXY(e);
+    if (_tokenMode==='reveal'||_tokenMode==='hide'){
+      _fogPaint=true;
+      paintFog(mapData,tx,ty,_tokenMode==='reveal',1);
+      renderFog(_fogCtx,mapData,W,H,TS);
+      return;
+    }
     const tok=mapData.tokens.find(t=>t.x===tx&&t.y===ty);
     if (tok){_drag={id:tok.id,px,py};_drawTokens(ovCtx,mapData.tokens,W,H,TS,_drag);}
     else if (_tokenMode){_placeToken(mapData,tx,ty);_drawTokens(ovCtx,mapData.tokens,W,H,TS,null);}
   });
   ovCanvas.addEventListener('mousemove',e=>{
+    const {px,py,tx,ty}=cvXY(e);
+    if (_fogPaint){
+      paintFog(mapData,tx,ty,_tokenMode==='reveal',1);
+      renderFog(_fogCtx,mapData,W,H,TS);
+      return;
+    }
     if (!_drag) return;
-    const {px,py}=cvXY(e); _drag.px=px;_drag.py=py;
+    _drag.px=px; _drag.py=py;
     _drawTokens(ovCtx,mapData.tokens,W,H,TS,_drag);
   });
   ovCanvas.addEventListener('mouseup',e=>{
+    _fogPaint=false;
     if (!_drag) return;
     const {tx,ty}=cvXY(e);
     const tok=mapData.tokens.find(t=>t.id===_drag.id);
-    if (tok){tok.x=Math.max(0,Math.min(W-1,tx));tok.y=Math.max(0,Math.min(H-1,ty));}
+    if (tok){
+      tok.x=Math.max(0,Math.min(W-1,tx)); tok.y=Math.max(0,Math.min(H-1,ty));
+      if (tok.type==='player') { revealAround(mapData,tok.x,tok.y,6); renderFog(_fogCtx,mapData,W,H,TS); }
+    }
     _drag=null; _drawTokens(ovCtx,mapData.tokens,W,H,TS,null);
   });
   ovCanvas.addEventListener('mouseleave',()=>{
+    _fogPaint=false;
     if (!_drag) return; _drag=null; _drawTokens(ovCtx,mapData.tokens,W,H,TS,null);
   });
   ovCanvas.addEventListener('contextmenu',e=>{
@@ -704,13 +788,39 @@ function _mapFeature(ctx, x, y, t, TS) {
     return;
   }
   if (t === T.TRAP) {
-    const s=TS*.52, tx=m-s/2, ty=n-s/2;
-    ctx.strokeStyle = 'rgba(165,45,45,0.42)'; ctx.lineWidth = 0.8; ctx.strokeRect(tx,ty,s,s);
-    ctx.beginPath();
-    ctx.moveTo(tx+s*.22,ty+s*.22); ctx.lineTo(tx+s*.78,ty+s*.78);
-    ctx.moveTo(tx+s*.78,ty+s*.22); ctx.lineTo(tx+s*.22,ty+s*.78);
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(165,45,45,0.32)'; ctx.beginPath(); ctx.arc(m,n,2,0,Math.PI*2); ctx.fill();
+    const variant = Math.floor(_ht(x,y,200)*3);
+    if (variant===0) {
+      // Pit trap — dark circular pit with warning ring
+      const gr=ctx.createRadialGradient(m,n,0,m,n,TS*.38);
+      gr.addColorStop(0,'#040302'); gr.addColorStop(1,'#1c140a');
+      ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(m,n,TS*.36,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba(160,80,0,0.55)'; ctx.lineWidth=1.0;
+      ctx.beginPath(); ctx.arc(m,n,TS*.38,0,Math.PI*2); ctx.stroke();
+      ctx.strokeStyle='rgba(160,80,0,0.28)'; ctx.lineWidth=0.6;
+      ctx.beginPath(); ctx.arc(m,n,TS*.46,0,Math.PI*2); ctx.stroke();
+      // Danger stripes
+      ctx.strokeStyle='rgba(160,60,0,0.30)'; ctx.lineWidth=0.6;
+      for(let si=-1;si<=1;si++){ctx.beginPath();ctx.moveTo(m+si*TS*.18-TS*.14,n+TS*.35);ctx.lineTo(m+si*TS*.18+TS*.14,n-TS*.35);ctx.stroke();}
+    } else if (variant===1) {
+      // Dart trap — concentric target with tiny dart holes
+      [.42,.27,.13].forEach((r,i)=>{
+        ctx.strokeStyle=`rgba(165,45,45,${0.22+i*.12})`; ctx.lineWidth=0.7;
+        ctx.beginPath(); ctx.arc(m,n,TS*r,0,Math.PI*2); ctx.stroke();
+      });
+      ctx.fillStyle='rgba(165,45,45,0.42)'; ctx.beginPath(); ctx.arc(m,n,2,0,Math.PI*2); ctx.fill();
+      [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx,dy])=>{
+        ctx.fillStyle='rgba(0,0,0,0.60)'; ctx.beginPath(); ctx.arc(m+dx*TS*.28,n+dy*TS*.28,1.3,0,Math.PI*2); ctx.fill();
+      });
+    } else {
+      // Tripwire — thin line across with X at crossing
+      ctx.strokeStyle='rgba(165,80,0,0.48)'; ctx.lineWidth=0.7;
+      ctx.beginPath(); ctx.moveTo(px+2,n); ctx.lineTo(px+TS-2,n); ctx.stroke();
+      ctx.strokeStyle='rgba(165,45,45,0.52)'; ctx.lineWidth=0.8;
+      const s=TS*.20;
+      ctx.beginPath(); ctx.moveTo(m-s,n-s); ctx.lineTo(m+s,n+s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(m+s,n-s); ctx.lineTo(m-s,n+s); ctx.stroke();
+      ctx.fillStyle='rgba(165,45,45,0.40)'; ctx.beginPath(); ctx.arc(m,n,2,0,Math.PI*2); ctx.fill();
+    }
     return;
   }
 }
@@ -722,10 +832,33 @@ window.setTokenMode = function(type) {
   document.querySelectorAll('.token-btn[data-type]').forEach(b => {
     b.classList.toggle('active', b.dataset.type === _tokenMode);
   });
+
+  const isTokenType = ['player','enemy','npc'].includes(_tokenMode);
+  const avatarRow = document.getElementById('avatar-row');
+  const avatarStrip = document.getElementById('avatar-strip');
+  if (avatarRow) avatarRow.style.display = isTokenType ? '' : 'none';
+  if (avatarStrip && isTokenType) {
+    const avs = AVATAR_SETS[_tokenMode] || [];
+    if (!_pendingAvatar || !avs.includes(_pendingAvatar)) _pendingAvatar = avs[0];
+    avatarStrip.innerHTML = avs.map(e =>
+      `<button class="avatar-btn${_pendingAvatar===e?' active':''}" onclick="selectAvatar('${e}')">${e}</button>`
+    ).join('');
+  }
+
+  const hints = {
+    player:'Click map to place — right-click to remove — drag to move',
+    enemy:'Click map to place monster — right-click to remove — drag to move',
+    npc:'Click map to place NPC — right-click to remove — drag to move',
+    reveal:'Click or drag to reveal fog',
+    hide:'Click or drag to hide tiles under fog',
+  };
   const hint = document.getElementById('token-hint');
-  if (hint) hint.textContent = _tokenMode
-    ? `Click map to place ${_tokenMode} — right-click token to remove — drag to move`
-    : '';
+  if (hint) hint.textContent = _tokenMode ? (hints[_tokenMode]||'') : '';
+};
+
+window.selectAvatar = function(emoji) {
+  _pendingAvatar = emoji;
+  document.querySelectorAll('.avatar-btn').forEach(b => b.classList.toggle('active', b.textContent===emoji));
 };
 
 window.clearTokens = function() {
@@ -749,7 +882,12 @@ function _placeToken(mapData, tx, ty) {
     id: uuid(), x:tx, y:ty, type,
     label: TOKEN_PFX[type]+_tokenCounts[type],
     color: TOKEN_COLORS[type],
+    avatar: _pendingAvatar || null,
   });
+  if (type==='player' && mapData.fog && mapData.fogEnabled) {
+    revealAround(mapData, tx, ty, 6);
+    renderFog(_fogCtx, mapData, mapData.W, mapData.H, MAP_TS);
+  }
 }
 
 function _drawTokens(ovCtx, tokens, W, H, TS, drag) {
@@ -758,29 +896,244 @@ function _drawTokens(ovCtx, tokens, W, H, TS, drag) {
     const dragging = drag && drag.id === tok.id;
     const cx = dragging ? drag.px : tok.x*TS + TS/2;
     const cy = dragging ? drag.py : tok.y*TS + TS/2;
-    const rad = TS * 0.38;
+    const rad = TS * 0.40;
+
     // Drop shadow
-    ovCtx.fillStyle = 'rgba(0,0,0,0.52)';
+    ovCtx.fillStyle = 'rgba(0,0,0,0.55)';
     ovCtx.beginPath(); ovCtx.arc(cx+1.5,cy+2.5,rad,0,Math.PI*2); ovCtx.fill();
+
     // Token body
     ovCtx.fillStyle = tok.color || TOKEN_COLORS[tok.type] || '#888';
     ovCtx.beginPath(); ovCtx.arc(cx,cy,rad,0,Math.PI*2); ovCtx.fill();
-    // White ring
-    ovCtx.strokeStyle='rgba(255,255,255,0.88)'; ovCtx.lineWidth=1.6;
+
+    if (tok.avatar) {
+      // Clip to circle, render emoji
+      ovCtx.save();
+      ovCtx.beginPath(); ovCtx.arc(cx,cy,rad*.92,0,Math.PI*2); ovCtx.clip();
+      const fs = Math.max(10, Math.floor(TS * 0.56));
+      ovCtx.font = `${fs}px serif`;
+      ovCtx.textAlign='center'; ovCtx.textBaseline='middle';
+      ovCtx.fillText(tok.avatar, cx, cy+1);
+      ovCtx.restore();
+      // Number badge top-right
+      const nb = Math.max(5, Math.floor(TS*0.20));
+      const bx = cx+rad*.68, by = cy-rad*.68;
+      ovCtx.fillStyle='rgba(0,0,0,0.82)';
+      ovCtx.beginPath(); ovCtx.arc(bx,by,nb,0,Math.PI*2); ovCtx.fill();
+      ovCtx.fillStyle='#fff'; ovCtx.font=`bold ${nb}px sans-serif`;
+      ovCtx.textAlign='center'; ovCtx.textBaseline='middle';
+      ovCtx.fillText(tok.label.replace(/[A-Z]/,''), bx, by+.5);
+    } else {
+      // Shine gradient
+      const shine=ovCtx.createRadialGradient(cx-rad*.3,cy-rad*.3,0,cx,cy,rad);
+      shine.addColorStop(0,'rgba(255,255,255,0.24)'); shine.addColorStop(1,'rgba(255,255,255,0)');
+      ovCtx.fillStyle=shine; ovCtx.beginPath(); ovCtx.arc(cx,cy,rad,0,Math.PI*2); ovCtx.fill();
+      // Label text
+      const fs=Math.max(7,Math.floor(TS*0.30));
+      ovCtx.fillStyle='#fff'; ovCtx.font=`bold ${fs}px sans-serif`;
+      ovCtx.textAlign='center'; ovCtx.textBaseline='middle';
+      ovCtx.shadowColor='rgba(0,0,0,0.7)'; ovCtx.shadowBlur=2;
+      ovCtx.fillText(tok.label,cx,cy);
+      ovCtx.shadowBlur=0;
+    }
+
+    // White ring always on top
+    ovCtx.strokeStyle='rgba(255,255,255,0.80)'; ovCtx.lineWidth=1.5;
     ovCtx.beginPath(); ovCtx.arc(cx,cy,rad,0,Math.PI*2); ovCtx.stroke();
-    // Inner shine
-    const shine=ovCtx.createRadialGradient(cx-rad*.3,cy-rad*.3,0,cx,cy,rad);
-    shine.addColorStop(0,'rgba(255,255,255,0.22)'); shine.addColorStop(1,'rgba(255,255,255,0)');
-    ovCtx.fillStyle=shine; ovCtx.beginPath(); ovCtx.arc(cx,cy,rad,0,Math.PI*2); ovCtx.fill();
-    // Label text
-    const fs = Math.max(7,Math.floor(TS*0.30));
-    ovCtx.fillStyle='#fff'; ovCtx.font=`bold ${fs}px sans-serif`;
-    ovCtx.textAlign='center'; ovCtx.textBaseline='middle';
-    ovCtx.shadowColor='rgba(0,0,0,0.7)'; ovCtx.shadowBlur=2;
-    ovCtx.fillText(tok.label,cx,cy);
-    ovCtx.shadowBlur=0;
   });
 }
+
+// ── Fog of War ────────────────────────────────────────────────────────────────
+
+function initFog(mapData) {
+  if (mapData.fog) return;
+  const {W,H,grid} = mapData;
+  mapData.fog = makeGrid(W, H, 0);
+  // Walls count as "revealed" — they're just void
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    if ((grid[y]?.[x]??T.WALL)===T.WALL) mapData.fog[y][x]=1;
+  }
+  if (mapData.fogMode===undefined)  mapData.fogMode='dm';
+  if (mapData.fogEnabled===undefined) mapData.fogEnabled=false;
+}
+
+function renderFog(fogCtx, mapData, W, H, TS) {
+  if (!fogCtx) return;
+  fogCtx.clearRect(0, 0, W*TS, H*TS);
+  if (!mapData.fog || !mapData.fogEnabled) return;
+  const isDM = mapData.fogMode!=='pc';
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    if (mapData.fog[y]?.[x]) continue;
+    fogCtx.fillStyle = isDM ? 'rgba(20,10,60,0.48)' : 'rgba(0,0,0,0.96)';
+    fogCtx.fillRect(x*TS, y*TS, TS, TS);
+  }
+}
+
+function revealAround(mapData, tx, ty, radius) {
+  if (!mapData.fog) return;
+  const {W,H} = mapData;
+  for (let dy=-radius;dy<=radius;dy++) for (let dx=-radius;dx<=radius;dx++) {
+    if (Math.sqrt(dx*dx+dy*dy)>radius) continue;
+    const nx=tx+dx, ny=ty+dy;
+    if (nx<0||ny<0||nx>=W||ny>=H) continue;
+    mapData.fog[ny][nx]=1;
+  }
+}
+
+function paintFog(mapData, tx, ty, reveal, radius) {
+  if (!mapData.fog) return;
+  const {W,H} = mapData;
+  for (let dy=-radius;dy<=radius;dy++) for (let dx=-radius;dx<=radius;dx++) {
+    if (Math.sqrt(dx*dx+dy*dy)>radius+.5) continue;
+    const nx=tx+dx, ny=ty+dy;
+    if (nx<0||ny<0||nx>=W||ny>=H) continue;
+    mapData.fog[ny][nx]=reveal?1:0;
+  }
+}
+
+window.toggleFogEnabled = function() {
+  if (!_currentMap) return;
+  _currentMap.fogEnabled = !_currentMap.fogEnabled;
+  const btn=document.getElementById('btn-fog-toggle');
+  if (btn) { btn.textContent=`🌫 ${_currentMap.fogEnabled?'On':'Off'}`; btn.classList.toggle('active',_currentMap.fogEnabled); }
+  renderFog(_fogCtx, _currentMap, _currentMap.W, _currentMap.H, MAP_TS);
+};
+
+window.toggleFogView = function() {
+  if (!_currentMap) return;
+  _currentMap.fogMode = _currentMap.fogMode==='pc' ? 'dm' : 'pc';
+  const btn=document.getElementById('btn-fog-view');
+  if (btn) { btn.textContent=_currentMap.fogMode==='pc'?'🙈 PC View':'👁 DM View'; btn.classList.toggle('active',_currentMap.fogMode==='pc'); }
+  renderFog(_fogCtx, _currentMap, _currentMap.W, _currentMap.H, MAP_TS);
+};
+
+window.fogRevealAll = function() {
+  if (!_currentMap?.fog) return;
+  const {W,H} = _currentMap;
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) _currentMap.fog[y][x]=1;
+  renderFog(_fogCtx, _currentMap, W, H, MAP_TS);
+};
+
+window.fogResetAll = function() {
+  if (!_currentMap) return;
+  const {W,H,grid} = _currentMap;
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    _currentMap.fog[y][x]=(grid[y]?.[x]??T.WALL)===T.WALL?1:0;
+  }
+  renderFog(_fogCtx, _currentMap, W, H, MAP_TS);
+};
+
+// ── Map HUD (round counter, timers, custom counters) ─────────────────────────
+
+function _refreshHUDTimers() {
+  const el=document.getElementById('hud-timers-wrap'); if (!el) return;
+  el.innerHTML=_mapHUD.timers.map(t=>{
+    const m=Math.floor(t.remaining/60).toString().padStart(2,'0');
+    const s=(t.remaining%60).toString().padStart(2,'0');
+    const pct=t.total>0?(t.remaining/t.total)*100:0;
+    const cls=t.remaining<=10?'hud-urgent':t.remaining<=30?'hud-warn':'';
+    return `<div class="hud-timer ${cls}">
+      <span class="hud-timer-name">${t.name}</span>
+      <div class="hud-timer-bar-wrap"><div class="hud-timer-bar" style="width:${pct}%"></div></div>
+      <span class="hud-timer-time">${m}:${s}</span>
+      <button class="hud-btn" onclick="timerToggle('${t.id}')">${t.running?'⏸':'▶'}</button>
+      <button class="hud-btn" onclick="timerReset('${t.id}')">↺</button>
+      <button class="hud-btn hud-del" onclick="timerDelete('${t.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function _refreshHUDCounters() {
+  const el=document.getElementById('hud-counters-wrap'); if (!el) return;
+  el.innerHTML=_mapHUD.counters.map(c=>`
+    <div class="hud-counter">
+      <span class="hud-counter-name">${c.name}</span>
+      <button class="hud-btn" onclick="counterAdjust('${c.id}',-1)">−</button>
+      <span class="hud-num" style="font-size:15px">${c.value}</span>
+      <button class="hud-btn" onclick="counterAdjust('${c.id}',1)">+</button>
+      <button class="hud-btn hud-del" onclick="counterDelete('${c.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+window.adjustRound = function(delta) {
+  _mapHUD.round = Math.max(1, _mapHUD.round+delta);
+  const el=document.getElementById('hud-round'); if (el) el.textContent=_mapHUD.round;
+};
+
+window.addMapCounter = function() {
+  showModal('Add Counter',`
+    <label class="form-label">Name</label>
+    <input id="ctr-name" class="form-input" placeholder="Concentration, Lair Actions..." value="">
+    <label class="form-label">Starting value</label>
+    <input id="ctr-val" class="form-input" type="number" value="0">
+  `,[
+    {label:'Add',cls:'btn-primary',action:'doAddMapCounter()'},
+    {label:'Cancel',action:'closeModal()'},
+  ]);
+};
+window.doAddMapCounter = function() {
+  const name=document.getElementById('ctr-name').value.trim()||'Counter';
+  const value=parseInt(document.getElementById('ctr-val').value)||0;
+  _mapHUD.counters.push({id:uuid(),name,value});
+  closeModal(); _refreshHUDCounters();
+};
+window.counterAdjust = function(id,delta) {
+  const c=_mapHUD.counters.find(c=>c.id===id); if(c){c.value+=delta;_refreshHUDCounters();}
+};
+window.counterDelete = function(id) {
+  _mapHUD.counters=_mapHUD.counters.filter(c=>c.id!==id); _refreshHUDCounters();
+};
+
+window.addMapTimer = function() {
+  showModal('Add Countdown Timer',`
+    <label class="form-label">Name</label>
+    <input id="tmr-name" class="form-input" placeholder="Spell Duration, Ritual, Alarm..." value="">
+    <label class="form-label" style="margin-top:10px">Quick set</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tmr-dur').value=30">30s</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tmr-dur').value=60">1m</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tmr-dur').value=180">3m</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tmr-dur').value=600">10m</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tmr-dur').value=3600">1h</button>
+    </div>
+    <label class="form-label">Duration (seconds)</label>
+    <input id="tmr-dur" class="form-input" type="number" value="60">
+  `,[
+    {label:'Add',cls:'btn-primary',action:'doAddMapTimer()'},
+    {label:'Cancel',action:'closeModal()'},
+  ]);
+};
+window.doAddMapTimer = function() {
+  const name=document.getElementById('tmr-name').value.trim()||'Timer';
+  const dur=parseInt(document.getElementById('tmr-dur').value)||60;
+  _mapHUD.timers.push({id:uuid(),name,total:dur,remaining:dur,running:false});
+  closeModal(); _refreshHUDTimers(); _startTimerTick();
+};
+window.timerToggle = function(id) {
+  const t=_mapHUD.timers.find(t=>t.id===id);
+  if(t){t.running=!t.running&&t.remaining>0; _refreshHUDTimers(); _startTimerTick();}
+};
+window.timerReset = function(id) {
+  const t=_mapHUD.timers.find(t=>t.id===id);
+  if(t){t.remaining=t.total;t.running=false; _refreshHUDTimers();}
+};
+window.timerDelete = function(id) {
+  _mapHUD.timers=_mapHUD.timers.filter(t=>t.id!==id); _refreshHUDTimers();
+};
+
+function _startTimerTick() {
+  if (_timerInterval) return;
+  _timerInterval=setInterval(()=>{
+    let dirty=false;
+    _mapHUD.timers.forEach(t=>{
+      if(t.running&&t.remaining>0){ t.remaining--; if(t.remaining===0)t.running=false; dirty=true; }
+    });
+    if(dirty) _refreshHUDTimers();
+  }, 1000);
+}
+
+// ── Compass Rose ──────────────────────────────────────────────────────────────
 
 function _drawCompassRose(ctx, cx, cy, sz, pal) {
   const gold = '#c8973c';

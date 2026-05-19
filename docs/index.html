@@ -136,16 +136,47 @@
     .map-legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
     .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
     .legend-dot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
-    .token-toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 0 4px; flex-wrap: wrap; }
-    .token-label { color: var(--muted); font-size: 12px; }
-    .token-hint { font-size: 11px; color: var(--accent); margin-left: 4px; }
-    .token-btn { padding: 4px 12px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 12px; transition: border-color .15s, background .15s; }
+    .token-toolbar { display: flex; flex-direction: column; gap: 6px; padding: 10px 0 4px; }
+    .token-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .token-label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; min-width: 42px; }
+    .token-hint { font-size: 11px; color: var(--accent); margin-top: 2px; }
+    .token-btn { padding: 4px 11px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 12px; transition: border-color .15s, background .15s; }
     .token-btn:hover { border-color: var(--accent); }
     .token-btn[data-type="player"] { border-color: #c8a018; color: #c8a018; }
     .token-btn[data-type="enemy"]  { border-color: #c42020; color: #c42020; }
     .token-btn[data-type="npc"]    { border-color: #2060c8; color: #2060c8; }
-    .token-btn.active { background: rgba(255,255,255,0.08); filter: brightness(1.25); }
+    .token-btn[data-type="reveal"] { border-color: #b08000; color: #d0a820; }
+    .token-btn[data-type="hide"]   { border-color: #5058a8; color: #8088d8; }
+    .token-btn.active { background: rgba(255,255,255,0.08); filter: brightness(1.28); }
     .token-btn-clear { color: var(--muted) !important; border-color: var(--border) !important; }
+
+    /* ── Avatar picker ── */
+    .avatar-strip { display: flex; flex-wrap: wrap; gap: 3px; }
+    .avatar-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; font-size: 15px; padding: 1px 4px; cursor: pointer; line-height: 1.5; transition: border-color .12s, background .12s; }
+    .avatar-btn:hover { border-color: var(--accent); background: var(--surf2); }
+    .avatar-btn.active { border-color: var(--accent); background: rgba(200,151,60,.18); box-shadow: 0 0 6px rgba(200,151,60,.3); }
+
+    /* ── Map HUD ── */
+    .map-hud { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin: 6px 0; }
+    .hud-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .hud-section { display: flex; align-items: center; gap: 5px; }
+    .hud-flex { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .hud-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 700; }
+    .hud-num { font-size: 20px; font-weight: 800; color: var(--gold); min-width: 26px; text-align: center; line-height: 1; }
+    .hud-btn { background: var(--surf2); border: 1px solid var(--border); color: var(--text); font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 5px; cursor: pointer; }
+    .hud-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .hud-del:hover { border-color: var(--crit) !important; color: var(--crit) !important; }
+    .hud-add { background: none; border: 1px dashed var(--border); color: var(--muted); font-size: 11px; padding: 2px 9px; border-radius: 5px; cursor: pointer; }
+    .hud-add:hover { border-color: var(--accent); color: var(--accent); }
+    .hud-divider { width: 1px; height: 22px; background: var(--border); }
+    .hud-timer { display: flex; align-items: center; gap: 5px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; }
+    .hud-timer.hud-warn   { border-color: var(--warn); }
+    .hud-timer.hud-urgent { border-color: var(--crit); animation: pulse .8s ease-in-out infinite; }
+    .hud-timer-name, .hud-counter-name { font-size: 10px; color: var(--muted); max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hud-timer-time { font-size: 13px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; min-width: 36px; text-align: center; }
+    .hud-timer-bar-wrap { width: 44px; height: 4px; background: var(--bg); border-radius: 2px; overflow: hidden; border: 1px solid var(--border2); }
+    .hud-timer-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 1s linear; }
+    .hud-counter { display: flex; align-items: center; gap: 5px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; }
 
     /* ── Music ── */
     .music-now { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; font-size: 13px; display: flex; align-items: center; gap: 10px; min-height: 40px; }
