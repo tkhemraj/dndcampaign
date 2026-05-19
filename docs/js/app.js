@@ -1644,9 +1644,10 @@ function renderEncounters() {
   const camp=getActiveCampaign();
   const level=camp?.partyLevel||5;
   const size=camp?.partySize||4;
+  const envOpts=['(Random)','Dungeon Corridor','Ruined Chamber','Forest Clearing','Tavern Common Room','Mountain Pass','Underground Lake Shore','Burning Building','Ship Deck','Sewer Tunnel','Ancient Temple','City Rooftops','Frozen Tundra'].map(e=>`<option>${e}</option>`).join('');
 
   setContent(`
-    <div class="view-header"><h1>⚔ Encounter Builder</h1></div>
+    <div class="view-header"><h1>⚔ Encounter Builder</h1><p class="view-sub">Full encounter briefs — environment, terrain, tactics, skill opportunities, loot</p></div>
     <div class="gen-controls">
       <div class="gen-field"><label class="form-label">Party Level</label><input id="enc-level" class="form-input" type="number" min="1" max="20" value="${level}" style="width:80px"></div>
       <div class="gen-field"><label class="form-label">Party Size</label><input id="enc-size" class="form-input" type="number" min="1" max="8" value="${size}" style="width:80px"></div>
@@ -1657,6 +1658,9 @@ function renderEncounters() {
           <option value="hard">Hard</option>
           <option value="deadly">Deadly</option>
         </select>
+      </div>
+      <div class="gen-field"><label class="form-label">Environment</label>
+        <select id="enc-env" class="form-select">${envOpts}</select>
       </div>
       <button class="btn btn-primary" onclick="doGenerateEncounter()">Generate Encounter</button>
     </div>
@@ -1669,29 +1673,109 @@ window.doGenerateEncounter=function(){
   const level=parseInt(document.getElementById('enc-level').value)||5;
   const size=parseInt(document.getElementById('enc-size').value)||4;
   const diff=document.getElementById('enc-diff').value;
-  const enc=generateEncounter(level,size,diff);
+  const envSel=document.getElementById('enc-env').value;
+  const envOverride=envSel==='(Random)'?null:envSel;
+  const enc=generateEncounter(level,size,diff,envOverride);
   document.getElementById('enc-result').innerHTML=encounterCard(enc);
 };
 
 function encounterCard(enc) {
   const diffColor={easy:'ok',medium:'warn',hard:'warn',deadly:'crit'}[enc.difficulty]||'muted';
-  const rows=enc.monsters.map(m=>`
-    <div class="list-row">
-      <div>
-        <span class="list-name">${m.displayName||m.name}</span>
-        <span class="list-meta">CR ${m.cr} · HP ${m.hp} · AC ${m.ac} · ATK ${m.atk} · ${m.dmg}</span>
+  const env=enc.environment||{};
+
+  // Parse "Label: rule text" format for terrain features
+  const featuresHtml=(env.features||[]).map(f=>{
+    const ci=f.indexOf(':');
+    const name=ci>-1?f.slice(0,ci):f;
+    const rule=ci>-1?f.slice(ci+1).trim():'';
+    return `<div class="enc-feature"><div class="enc-feature-name">${name}</div>${rule?`<div class="enc-feature-rule">${rule}</div>`:''}</div>`;
+  }).join('');
+
+  // Monster count map for display
+  const monsterCounts={};
+  enc.monsters.forEach(m=>{ monsterCounts[m.name]=(monsterCounts[m.name]||0)+1; });
+
+  const monstersHtml=(enc.uniqueMonsters||enc.monsters).map(m=>{
+    const count=monsterCounts[m.name]||1;
+    const atkStr=typeof m.atk==='number'?(m.atk>=0?`+${m.atk}`:String(m.atk)):(m.atk||'—');
+    return `<div class="enc-monster">
+      <div class="enc-monster-header">
+        <span class="enc-monster-name">${m.name}</span>
+        <span class="enc-monster-cr">CR ${m.cr}</span>
+        <span class="enc-monster-type">${m.type||''}</span>
+        ${count>1?`<span class="enc-monster-count">${count}×</span>`:''}
       </div>
-      <span class="list-meta">${m.xp} XP</span>
+      <div class="enc-stat-bar">
+        <div class="enc-stat-item"><span class="enc-stat-label">HP</span><span class="enc-stat-val">${m.hp}</span></div>
+        <div class="enc-stat-item"><span class="enc-stat-label">AC</span><span class="enc-stat-val">${m.ac}</span></div>
+        <div class="enc-stat-item"><span class="enc-stat-label">ATK</span><span class="enc-stat-val">${atkStr}</span></div>
+        <div class="enc-stat-item"><span class="enc-stat-label">DMG</span><span class="enc-stat-val">${m.dmg||'—'}</span></div>
+        <div class="enc-stat-item"><span class="enc-stat-label">Speed</span><span class="enc-stat-val">${m.speed||30}ft</span></div>
+        <div class="enc-stat-item"><span class="enc-stat-label">XP</span><span class="enc-stat-val">${m.xp}</span></div>
+      </div>
+      ${m.traits?`<div class="enc-monster-traits">${m.traits}</div>`:''}
+    </div>`;
+  }).join('');
+
+  const tactics=enc.tactics||{};
+  const tacticsHtml=[
+    {label:'Round 1 — Opening',text:tactics.open||''},
+    {label:'Sustained Play',text:tactics.sustain||''},
+    {label:'Morale & Break Points',text:tactics.morale||''},
+  ].map(t=>`<div class="enc-tactic"><div class="enc-tactic-label">${t.label}</div>${t.text}</div>`).join('');
+
+  const skillOppsHtml=(enc.skillOpps||[]).map(s=>`
+    <div class="enc-skill-opp">
+      <span class="enc-skill-badge">${s.skill}</span>
+      <span class="enc-skill-effect">${s.effect}</span>
+    </div>`).join('');
+
+  const lootHtml=(enc.loot||[]).map(l=>`<div class="enc-loot-item">${l}</div>`).join('');
+  const encData=encodeURIComponent(JSON.stringify(enc));
+
+  return `<div class="enc-card">
+    <div class="enc-header">
+      <div>
+        <span class="tag-${diffColor}" style="font-size:17px;font-weight:800;letter-spacing:1px">${enc.difficulty.toUpperCase()}</span>
+        <div class="enc-xp-row">Budget ${enc.budget} XP · Raw ${enc.rawXP} XP · Adjusted <strong>${enc.totalXP} XP</strong> · ${enc.partySize} players · Level ${enc.partyLevel}</div>
+      </div>
+      <div class="enc-env-block">
+        <div class="enc-env-name">📍 ${env.name||'Environment'}</div>
+        <div class="enc-env-desc">${env.desc||''}</div>
+      </div>
     </div>
-  `).join('');
-  return `<div class="info-card">
-    <div class="ic-row">
-      <span class="tag-${diffColor}" style="font-size:13px;font-weight:700">${enc.difficulty.toUpperCase()}</span>
-      <span style="color:var(--muted);font-size:13px">Budget ${enc.budget} XP · Using ${enc.rawXP} XP · Adjusted ${enc.totalXP} XP</span>
+    <div class="enc-body">
+      <div class="enc-section">
+        <div class="enc-section-title">🗺 Terrain Features</div>
+        <div class="enc-features">${featuresHtml}</div>
+      </div>
+      <div class="enc-section">
+        <div class="enc-section-title">👹 Monster Roster — ${enc.monsterSummary||''}</div>
+        <div class="enc-monsters">${monstersHtml}</div>
+      </div>
+      <div class="enc-section">
+        <div class="enc-section-title">⚔ Tactical Brief — ${enc.dominantType||''} tactics</div>
+        <div class="enc-tactic-grid">${tacticsHtml}</div>
+      </div>
+      <div class="enc-section">
+        <div class="enc-section-title">🎯 Skill Opportunities</div>
+        <div class="enc-skill-opps">${skillOppsHtml}</div>
+      </div>
+      <div class="enc-section">
+        <div class="enc-section-title">🔺 Escalation Option</div>
+        <div class="enc-escalation">${enc.escalation||''}</div>
+      </div>
+      <div class="enc-section">
+        <div class="enc-section-title">💰 Loot (Level ${enc.partyLevel})</div>
+        <div class="enc-loot">${lootHtml}</div>
+      </div>
+      <div class="enc-section">
+        <div class="enc-section-title"><span class="quest-dm-tag">DM</span> Notes</div>
+        <div class="enc-dm-note">${enc.dmNote||''}</div>
+      </div>
     </div>
-    ${rows}
-    <div style="margin-top:12px;display:flex;gap:8px">
-      <button class="btn btn-primary" onclick="launchCombat('${encodeURIComponent(JSON.stringify(enc))}')">⚔ Start Combat</button>
+    <div class="enc-actions">
+      <button class="btn btn-primary" onclick="launchCombat('${encData}')">⚔ Start Combat</button>
       <button class="btn btn-secondary btn-sm" onclick="doGenerateEncounter()">Re-generate</button>
     </div>
   </div>`;

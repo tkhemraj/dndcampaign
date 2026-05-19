@@ -412,6 +412,46 @@
     .rules-table td { padding: 7px 8px; border-bottom: 1px solid var(--border2); color: var(--text); }
     .rules-table tr:last-child td { border-bottom: none; }
 
+    /* ── Encounter Card ── */
+    .enc-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 16px; }
+    .enc-header { background: var(--card2); border-bottom: 1px solid var(--border); padding: 16px 20px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; }
+    .enc-env-block { margin-left: auto; text-align: right; }
+    .enc-env-name { font-size: 14px; font-weight: 700; color: var(--accent); }
+    .enc-env-desc { color: var(--muted); font-size: 11px; max-width: 320px; line-height: 1.5; margin-top: 3px; }
+    .enc-xp-row { color: var(--muted); font-size: 12px; margin-top: 5px; }
+    .enc-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+    .enc-section { display: flex; flex-direction: column; gap: 8px; }
+    .enc-section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--border2); padding-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+    .enc-features { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+    .enc-feature { background: var(--card2); border: 1px solid var(--border2); border-radius: 6px; padding: 9px 12px; font-size: 12px; }
+    .enc-feature-name { font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .enc-feature-rule { color: var(--muted); line-height: 1.5; }
+    .enc-monsters { display: flex; flex-direction: column; gap: 10px; }
+    .enc-monster { background: var(--card2); border: 1px solid var(--border2); border-radius: 8px; padding: 12px 14px; }
+    .enc-monster-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .enc-monster-name { font-size: 15px; font-weight: 700; color: var(--text); }
+    .enc-monster-cr { font-size: 11px; font-weight: 700; color: var(--gold); background: rgba(255,165,0,.12); border: 1px solid rgba(255,165,0,.25); padding: 1px 7px; border-radius: 4px; }
+    .enc-monster-type { font-size: 11px; color: var(--muted); text-transform: capitalize; }
+    .enc-monster-count { font-size: 13px; color: var(--accent); font-weight: 700; margin-left: auto; }
+    .enc-stat-bar { display: flex; flex-wrap: wrap; gap: 14px; }
+    .enc-stat-item { display: flex; flex-direction: column; align-items: center; min-width: 42px; }
+    .enc-stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .enc-stat-val { font-size: 13px; font-weight: 700; color: var(--text); }
+    .enc-monster-traits { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--border2); padding-top: 7px; }
+    .enc-tactic-grid { display: flex; flex-direction: column; gap: 8px; }
+    .enc-tactic { background: var(--card2); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 9px 12px; font-size: 12px; color: var(--text); line-height: 1.6; }
+    .enc-tactic-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--accent); margin-bottom: 4px; }
+    .enc-skill-opps { display: flex; flex-direction: column; gap: 7px; }
+    .enc-skill-opp { display: flex; gap: 10px; align-items: flex-start; font-size: 12px; }
+    .enc-skill-badge { background: rgba(120,80,200,.18); border: 1px solid rgba(150,100,255,.3); border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 600; color: #b09aff; white-space: nowrap; flex-shrink: 0; }
+    .enc-skill-effect { color: var(--muted); line-height: 1.5; }
+    .enc-escalation { background: rgba(231,76,60,.06); border: 1px solid rgba(231,76,60,.2); border-radius: 6px; padding: 10px 14px; font-size: 12px; color: var(--text); line-height: 1.6; }
+    .enc-loot { display: flex; flex-direction: column; gap: 6px; }
+    .enc-loot-item { font-size: 12px; color: var(--muted); line-height: 1.5; padding-left: 18px; position: relative; }
+    .enc-loot-item::before { content: '◆'; position: absolute; left: 0; color: var(--gold); font-size: 10px; top: 2px; }
+    .enc-dm-note { background: rgba(255,165,0,.06); border: 1px solid rgba(255,165,0,.2); border-radius: 6px; padding: 12px 14px; font-size: 12px; color: var(--text); line-height: 1.7; }
+    .enc-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 20px 20px; }
+
     /* ── Modal ── */
     #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
     #modal-overlay.hidden { display: none; }
