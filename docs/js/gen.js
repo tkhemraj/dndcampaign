@@ -107,7 +107,7 @@ function genDungeon(subtype='standard') {
 
   const titles = {standard:'Dungeon',underdark:'Underdark Delve',crypt:'Ancient Crypt',sewers:'Sewer Tunnels',cerberus_lab:'Cerberus Assembly Laboratory',bazzoxan:'Bazzoxan Caverns'};
   const labels = rooms.map((r,i) => ({x:Math.floor(r.x+r.w/2),y:Math.floor(r.y+r.h/2),text:i===0?'Entry':i===rooms.length-1?'Boss':`R${i+1}`}));
-  return {grid,W,H,rooms,labels,title:titles[subtype]||'Dungeon'};
+  return {grid,W,H,rooms,labels,title:titles[subtype]||'Dungeon', mapTheme:subtype||'standard'};
 }
 
 function genOutdoor(theme='forest') {
@@ -165,7 +165,7 @@ function genOutdoor(theme='forest') {
     }
   }
 
-  return {grid,W,H,rooms:[],labels:[],title:cfg.title};
+  return {grid,W,H,rooms:[],labels:[],title:cfg.title, mapTheme:theme};
 }
 
 function genInterior(template='tavern') {
@@ -259,7 +259,7 @@ function genInterior(template='tavern') {
 
   const titles={tavern:'Tavern / Inn',castle:'Castle Keep',ship:'Sailing Ship',temple:'Temple / Shrine',mansion:'Noble Mansion'};
   const labels=rooms.map(r=>({x:Math.floor(r.x+r.w/2),y:Math.floor(r.y+r.h/2),text:r.name}));
-  return {grid,W,H,rooms,labels,title:titles[template]||template};
+  return {grid,W,H,rooms,labels,title:titles[template]||template, mapTheme:template};
 }
 
 function genWildemount(subtype='xhorhas_wastes') {

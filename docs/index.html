@@ -136,6 +136,16 @@
     .map-legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
     .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
     .legend-dot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+    .token-toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 0 4px; flex-wrap: wrap; }
+    .token-label { color: var(--muted); font-size: 12px; }
+    .token-hint { font-size: 11px; color: var(--accent); margin-left: 4px; }
+    .token-btn { padding: 4px 12px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 12px; transition: border-color .15s, background .15s; }
+    .token-btn:hover { border-color: var(--accent); }
+    .token-btn[data-type="player"] { border-color: #c8a018; color: #c8a018; }
+    .token-btn[data-type="enemy"]  { border-color: #c42020; color: #c42020; }
+    .token-btn[data-type="npc"]    { border-color: #2060c8; color: #2060c8; }
+    .token-btn.active { background: rgba(255,255,255,0.08); filter: brightness(1.25); }
+    .token-btn-clear { color: var(--muted) !important; border-color: var(--border) !important; }
 
     /* ── Music ── */
     .music-now { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; font-size: 13px; display: flex; align-items: center; gap: 10px; min-height: 40px; }

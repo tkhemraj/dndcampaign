@@ -301,6 +301,28 @@ function _ht(x, y, i) {
   return ((h ^ (h >>> 15)) >>> 0) / 4294967295;
 }
 
+// void=wall fill, room/corr=floor colors, ao=AO shadow RGB, ink/hi=outline colors
+// floorStyle: 'flags'|'wood'|'marble'   joints=joint/grain stroke color
+const MAP_PALETTES = {
+  standard:     {void:'#0e0c09',room:'#cba87c',corr:'#a88a60',ao:'0,0,0',    ink:'rgba(8,6,4,0.95)',   hi:'rgba(90,65,35,0.60)',  floorStyle:'flags', joints:'rgba(55,35,15,0.28)'},
+  crypt:        {void:'#0e0c12',room:'#aaa29a',corr:'#7e7a74',ao:'22,12,32', ink:'rgba(10,7,16,0.95)', hi:'rgba(78,68,98,0.55)',   floorStyle:'flags', joints:'rgba(72,68,82,0.28)'},
+  underdark:    {void:'#060410',room:'#483660',corr:'#30244a',ao:'55,0,85',   ink:'rgba(6,3,14,0.95)',  hi:'rgba(68,28,110,0.60)', floorStyle:'flags', joints:'rgba(52,32,72,0.28)'},
+  bazzoxan:     {void:'#060410',room:'#483660',corr:'#30244a',ao:'55,0,85',   ink:'rgba(6,3,14,0.95)',  hi:'rgba(68,28,110,0.60)', floorStyle:'flags', joints:'rgba(52,32,72,0.28)'},
+  sewers:       {void:'#050c05',room:'#283620',corr:'#1c2616',ao:'0,28,0',   ink:'rgba(3,8,3,0.95)',   hi:'rgba(28,68,18,0.50)',  floorStyle:'flags', joints:'rgba(18,38,12,0.32)'},
+  cerberus_lab: {void:'#0c0c18',room:'#bec2ca',corr:'#868e9e',ao:'14,14,38', ink:'rgba(7,7,20,0.95)',  hi:'rgba(108,108,158,0.50)',floorStyle:'flags', joints:'rgba(78,88,110,0.22)'},
+  tavern:       {void:'#120c04',room:'#b87e1a',corr:'#886008',ao:'32,14,0',  ink:'rgba(10,4,1,0.95)',  hi:'rgba(128,68,8,0.55)',  floorStyle:'wood',  joints:'rgba(38,18,4,0.18)'},
+  castle:       {void:'#121008',room:'#beb69a',corr:'#8e8878',ao:'18,14,10', ink:'rgba(9,7,5,0.95)',   hi:'rgba(108,98,78,0.50)', floorStyle:'flags', joints:'rgba(62,58,50,0.28)'},
+  ship:         {void:'#0c0802',room:'#784e24',corr:'#543814',ao:'26,14,0',  ink:'rgba(7,3,1,0.95)',   hi:'rgba(88,52,12,0.50)',  floorStyle:'wood',  joints:'rgba(28,12,3,0.20)'},
+  temple:       {void:'#0a0a10',room:'#e2ded6',corr:'#b8b4ac',ao:'10,10,20', ink:'rgba(5,5,12,0.95)',  hi:'rgba(188,178,148,0.50)',floorStyle:'marble',joints:'rgba(138,128,148,0.22)'},
+  mansion:      {void:'#0c0a08',room:'#cec2a2',corr:'#9e9276',ao:'14,10,7',  ink:'rgba(7,5,3,0.95)',   hi:'rgba(138,118,78,0.50)',floorStyle:'wood',  joints:'rgba(78,62,38,0.20)'},
+};
+function _pal(theme) { return MAP_PALETTES[theme] || MAP_PALETTES.standard; }
+
+let _tokenMode = null;
+let _tokenCounts = {player:0, enemy:0, npc:0};
+const TOKEN_COLORS = {player:'#d4a017', enemy:'#c42020', npc:'#1a5bb5'};
+const TOKEN_PFX    = {player:'P', enemy:'M', npc:'N'};
+
 function renderMaps() {
   const typeOpts=MAP_TYPES.map(t=>`<option value="${t.value}">${t.label}</option>`).join('');
   const firstType=MAP_TYPES[0];
@@ -318,6 +340,14 @@ function renderMaps() {
     <div class="map-wrap" id="map-wrap">
       <div class="map-placeholder">Select a type and click Generate Map</div>
     </div>
+    <div class="token-toolbar" id="token-toolbar" style="display:none">
+      <span class="token-label">Place token:</span>
+      <button class="token-btn" data-type="player" onclick="setTokenMode('player')">⬤ Player</button>
+      <button class="token-btn" data-type="enemy"  onclick="setTokenMode('enemy')">⬤ Monster</button>
+      <button class="token-btn" data-type="npc"    onclick="setTokenMode('npc')">⬤ NPC</button>
+      <button class="token-btn token-btn-clear" onclick="clearTokens()">✕ Clear</button>
+      <span id="token-hint" class="token-hint"></span>
+    </div>
     <div class="map-legend-row" id="map-legend"></div>
   `);
 
@@ -331,9 +361,12 @@ function renderMaps() {
 window.doGenerateMap=function(){
   const type=document.getElementById('map-type').value;
   const sub=document.getElementById('map-sub').value;
+  _tokenMode=null; _tokenCounts={player:0,enemy:0,npc:0};
+  document.querySelectorAll('.token-btn[data-type]').forEach(b=>b.classList.remove('active'));
   _currentMap=generateMap(type,sub);
   drawMapCanvas(_currentMap);
   document.getElementById('btn-export').style.display='';
+  document.getElementById('token-toolbar').style.display='';
   const btnSave=document.getElementById('btn-save-map');
   if (btnSave) btnSave.style.display='';
 };
@@ -359,6 +392,9 @@ function drawMapCanvas(mapData) {
   const wrap = document.getElementById('map-wrap');
   wrap.innerHTML = '';
   const TS = MAP_TS, W = mapData.W, H = mapData.H;
+  const theme = mapData.mapTheme || 'standard';
+  const pal = _pal(theme);
+  if (!mapData.tokens) mapData.tokens = [];
 
   const titleEl = document.createElement('div');
   titleEl.className = 'map-title';
@@ -366,135 +402,181 @@ function drawMapCanvas(mapData) {
   wrap.appendChild(titleEl);
 
   const scroll = document.createElement('div');
-  scroll.style.cssText = 'overflow:auto;max-height:560px;border-radius:4px;background:#0e0c09;';
+  scroll.style.cssText = `overflow:auto;max-height:560px;border-radius:4px;position:relative;background:${pal.void};`;
   wrap.appendChild(scroll);
 
   const canvas = document.createElement('canvas');
   canvas.id = 'map-canvas';
-  canvas.width = W * TS; canvas.height = H * TS;
-  canvas.style.display = 'block';
+  canvas.width = W*TS; canvas.height = H*TS;
+  canvas.style.cssText = 'display:block;';
   scroll.appendChild(canvas);
 
+  const ovCanvas = document.createElement('canvas');
+  ovCanvas.id = 'token-canvas';
+  ovCanvas.width = W*TS; ovCanvas.height = H*TS;
+  ovCanvas.style.cssText = 'position:absolute;top:0;left:0;cursor:crosshair;';
+  scroll.appendChild(ovCanvas);
+
   const ctx = canvas.getContext('2d');
+  const ovCtx = ovCanvas.getContext('2d');
   const g = mapData.grid;
 
-  function tileAt(tx, ty) {
-    if (tx < 0 || ty < 0 || tx >= W || ty >= H) return T.WALL;
-    return (g[ty]?.[tx]) ?? T.WALL;
+  function tileAt(tx,ty) {
+    if (tx<0||ty<0||tx>=W||ty>=H) return T.WALL;
+    return (g[ty]?.[tx])??T.WALL;
   }
-  function isWall(tx, ty) { return tileAt(tx,ty) === T.WALL; }
-  function isOpen(tx, ty) { return tileAt(tx,ty) !== T.WALL; }
-  function inRoom(tx, ty) {
-    if (!mapData.rooms || !mapData.rooms.length) return false;
-    return mapData.rooms.some(r => tx>=r.x && tx<r.x+r.w && ty>=r.y && ty<r.y+r.h);
-  }
-
-  // Pass 1 — void fill
-  ctx.fillStyle = '#0e0c09';
-  ctx.fillRect(0, 0, W*TS, H*TS);
-
-  // Pass 2 — floor tiles
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const t = tileAt(x, y);
-    if (t !== T.WALL) _mapTile(ctx, x, y, t, TS, inRoom(x, y));
+  function isWall(tx,ty){return tileAt(tx,ty)===T.WALL;}
+  function isOpen(tx,ty){return tileAt(tx,ty)!==T.WALL;}
+  function inRoom(tx,ty){
+    if (!mapData.rooms||!mapData.rooms.length) return false;
+    return mapData.rooms.some(r=>tx>=r.x&&tx<r.x+r.w&&ty>=r.y&&ty<r.y+r.h);
   }
 
-  // Pass 3 — flagstone joints every 2 tiles (floor only)
-  ctx.strokeStyle = 'rgba(55,35,15,0.30)'; ctx.lineWidth = 0.5;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      if (isWall(x, y)) continue;
-      const px = x*TS, py = y*TS;
-      if (x % 2 === 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py+TS); ctx.stroke(); }
-      if (y % 2 === 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px+TS, py); ctx.stroke(); }
+  // P1 — void fill
+  ctx.fillStyle=pal.void; ctx.fillRect(0,0,W*TS,H*TS);
+
+  // P2 — floor tiles (theme-colored)
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    const t=tileAt(x,y); if (t!==T.WALL) _mapTile(ctx,x,y,t,TS,inRoom(x,y),pal);
+  }
+
+  // P3 — floor style: flagstone / wood planks / marble veins
+  const fl=pal.floorStyle||'flags';
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    if (isWall(x,y)) continue;
+    const px=x*TS, py=y*TS, r=(i)=>_ht(x,y,i);
+    if (fl==='flags') {
+      ctx.strokeStyle=pal.joints||'rgba(55,35,15,0.28)'; ctx.lineWidth=0.5;
+      if (x%2===0){ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,py+TS);ctx.stroke();}
+      if (y%2===0){ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+TS,py);ctx.stroke();}
+    } else if (fl==='wood') {
+      if (y%2===0){ctx.strokeStyle=pal.joints||'rgba(40,20,5,0.16)';ctx.lineWidth=0.6;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+TS,py);ctx.stroke();}
+      if (r(70)>0.42){ctx.strokeStyle='rgba(0,0,0,0.055)';ctx.lineWidth=0.4;const gy=py+r(71)*TS;ctx.beginPath();ctx.moveTo(px,gy);ctx.lineTo(px+TS,gy+(r(72)-.5)*5);ctx.stroke();}
+    } else if (fl==='marble') {
+      if (inRoom(x,y)&&r(70)>0.52){ctx.strokeStyle=pal.joints||'rgba(140,130,150,0.22)';ctx.lineWidth=0.4+r(71)*0.6;ctx.beginPath();ctx.moveTo(px+r(72)*TS,py+r(73)*TS);ctx.quadraticCurveTo(px+TS*.5,py+TS*.5,px+r(74)*TS,py+r(75)*TS);ctx.stroke();}
     }
   }
 
-  // Pass 4 — ambient occlusion (walls cast shadows onto adjacent floor)
-  const aoW = TS * 0.72;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      if (isWall(x, y)) continue;
-      const px = x*TS, py = y*TS;
-      [[0,-1,px,py,px,py+aoW],[0,1,px,py+TS,px,py+TS-aoW],
-       [-1,0,px,py,px+aoW,py],[1,0,px+TS,py,px+TS-aoW,py]
-      ].forEach(([dx,dy,gx0,gy0,gx1,gy1]) => {
-        if (!isWall(x+dx, y+dy)) return;
-        const gr = ctx.createLinearGradient(gx0,gy0,gx1,gy1);
-        gr.addColorStop(0,'rgba(0,0,0,0.58)');
-        gr.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.fillStyle = gr; ctx.fillRect(px, py, TS, TS);
-      });
+  // P4 — theme accent details (bones, bioluminescence, arcane runes)
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    if (isWall(x,y)) continue;
+    const px=x*TS, py=y*TS, r=(i)=>_ht(x,y,i);
+    if (theme==='crypt'&&inRoom(x,y)&&r(70)>0.93) {
+      ctx.strokeStyle='rgba(130,122,112,0.32)';ctx.lineWidth=0.9;
+      ctx.beginPath();ctx.moveTo(px+TS*.35,py+TS*.15);ctx.lineTo(px+TS*.35,py+TS*.85);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(px+TS*.12,py+TS*.38);ctx.lineTo(px+TS*.58,py+TS*.38);ctx.stroke();
+    }
+    if ((theme==='underdark'||theme==='bazzoxan')&&r(80)>0.87) {
+      ctx.fillStyle=`rgba(55,195,255,${0.32+r(81)*0.48})`;
+      ctx.beginPath();ctx.arc(px+r(82)*TS,py+r(83)*TS,0.6+r(84)*1.4,0,Math.PI*2);ctx.fill();
+    }
+    if (theme==='cerberus_lab'&&inRoom(x,y)&&r(70)>0.95) {
+      ctx.strokeStyle='rgba(88,108,225,0.32)';ctx.lineWidth=0.7;
+      ctx.beginPath();ctx.arc(px+TS*.5,py+TS*.5,TS*.33,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(px+TS*.17,py+TS*.5);ctx.lineTo(px+TS*.83,py+TS*.5);ctx.stroke();
+    }
+    if (theme==='sewers'&&r(70)>0.88) {
+      ctx.fillStyle=`rgba(20,48,14,${0.28+r(71)*0.30})`;
+      ctx.fillRect(px,py,TS,TS);
     }
   }
 
-  // Pass 5 — thick ink outlines at wall→floor edges + south-face depth strip
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      if (!isWall(x, y)) continue;
-      const px = x*TS, py = y*TS;
-      if (isOpen(x, y+1)) {
-        ctx.strokeStyle = 'rgba(90,65,35,0.6)'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(px,py+TS-1); ctx.lineTo(px+TS,py+TS-1); ctx.stroke();
-        ctx.strokeStyle = '#08060400'; ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(8,6,4,0.95)'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(px,py+TS); ctx.lineTo(px+TS,py+TS); ctx.stroke();
-      }
-      if (isOpen(x, y-1)) {
-        ctx.strokeStyle = 'rgba(8,6,4,0.95)'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+TS,py); ctx.stroke();
-      }
-      if (isOpen(x+1, y)) {
-        ctx.strokeStyle = 'rgba(8,6,4,0.95)'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(px+TS,py); ctx.lineTo(px+TS,py+TS); ctx.stroke();
-      }
-      if (isOpen(x-1, y)) {
-        ctx.strokeStyle = 'rgba(8,6,4,0.95)'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px,py+TS); ctx.stroke();
-      }
-    }
-  }
-
-  // Pass 6 — feature overlays
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) _mapFeature(ctx, x, y, tileAt(x,y), TS);
-
-  // Pass 7 — very subtle 5-foot grid
-  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 0.3;
-  for (let xi = 0; xi <= W; xi++) { ctx.beginPath(); ctx.moveTo(xi*TS,0); ctx.lineTo(xi*TS,H*TS); ctx.stroke(); }
-  for (let yi = 0; yi <= H; yi++) { ctx.beginPath(); ctx.moveTo(0,yi*TS); ctx.lineTo(W*TS,yi*TS); ctx.stroke(); }
-
-  // Pass 8 — room labels
-  if (mapData.labels && mapData.labels.length) {
-    const fs = Math.max(8, Math.floor(TS * 0.38));
-    ctx.font = `bold ${fs}px serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    mapData.labels.forEach(l => {
-      const lx = l.x*TS+TS/2, ly = l.y*TS+TS/2;
-      const tw = ctx.measureText(l.text).width;
-      ctx.fillStyle = 'rgba(10,8,5,0.82)';
-      ctx.fillRect(lx-tw/2-4, ly-fs/2-3, tw+8, fs+6);
-      ctx.fillStyle = '#e8b840';
-      ctx.fillText(l.text, lx, ly);
+  // P5 — ambient occlusion
+  const aoRgb=pal.ao||'0,0,0', aoW=TS*0.72;
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    if (isWall(x,y)) continue;
+    const px=x*TS, py=y*TS;
+    [[0,-1,px,py,px,py+aoW],[0,1,px,py+TS,px,py+TS-aoW],
+     [-1,0,px,py,px+aoW,py],[1,0,px+TS,py,px+TS-aoW,py]
+    ].forEach(([dx,dy,gx0,gy0,gx1,gy1])=>{
+      if (!isWall(x+dx,y+dy)) return;
+      const gr=ctx.createLinearGradient(gx0,gy0,gx1,gy1);
+      gr.addColorStop(0,`rgba(${aoRgb},0.58)`); gr.addColorStop(1,`rgba(${aoRgb},0)`);
+      ctx.fillStyle=gr; ctx.fillRect(px,py,TS,TS);
     });
   }
 
-  const legendEl = document.getElementById('map-legend');
-  if (legendEl) legendEl.innerHTML = [
-    ['#0e0c09','Wall'],['#cba87c','Room'],['#a88a60','Corridor'],['#5a2e10','Door'],
-    ['#1e4a70','Water'],['#380902','Lava'],['#142210','Trees'],['#8a7558','Road'],
-    ['#3a2e1e','Rubble'],['#2a4a1a','Grass'],['#d0e0f0','Snow'],
+  // P6 — thick ink outlines at wall→floor edges
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    if (!isWall(x,y)) continue;
+    const px=x*TS, py=y*TS;
+    if (isOpen(x,y+1)){ctx.strokeStyle=pal.hi;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(px,py+TS-1);ctx.lineTo(px+TS,py+TS-1);ctx.stroke();ctx.strokeStyle=pal.ink;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(px,py+TS);ctx.lineTo(px+TS,py+TS);ctx.stroke();}
+    if (isOpen(x,y-1)){ctx.strokeStyle=pal.ink;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+TS,py);ctx.stroke();}
+    if (isOpen(x+1,y)){ctx.strokeStyle=pal.ink;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(px+TS,py);ctx.lineTo(px+TS,py+TS);ctx.stroke();}
+    if (isOpen(x-1,y)){ctx.strokeStyle=pal.ink;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,py+TS);ctx.stroke();}
+  }
+
+  // P7 — feature overlays
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) _mapFeature(ctx,x,y,tileAt(x,y),TS);
+
+  // P8 — subtle 5-foot grid
+  ctx.strokeStyle='rgba(0,0,0,0.06)';ctx.lineWidth=0.3;
+  for (let xi=0;xi<=W;xi++){ctx.beginPath();ctx.moveTo(xi*TS,0);ctx.lineTo(xi*TS,H*TS);ctx.stroke();}
+  for (let yi=0;yi<=H;yi++){ctx.beginPath();ctx.moveTo(0,yi*TS);ctx.lineTo(W*TS,yi*TS);ctx.stroke();}
+
+  // P9 — room labels
+  if (mapData.labels&&mapData.labels.length) {
+    const fs=Math.max(8,Math.floor(TS*0.38));
+    ctx.font=`bold ${fs}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    mapData.labels.forEach(l=>{
+      const lx=l.x*TS+TS/2, ly=l.y*TS+TS/2, tw=ctx.measureText(l.text).width;
+      ctx.fillStyle='rgba(10,8,5,0.84)';ctx.fillRect(lx-tw/2-4,ly-fs/2-3,tw+8,fs+6);
+      ctx.fillStyle='#e8b840';ctx.fillText(l.text,lx,ly);
+    });
+  }
+
+  const legendEl=document.getElementById('map-legend');
+  if (legendEl) legendEl.innerHTML=[
+    [pal.void,'Wall'],[pal.room,'Room'],[pal.corr,'Corridor'],['#5a2e10','Door'],
+    ['#1e4a70','Water'],['#380902','Lava'],['#142210','Trees'],['#8a7558','Road'],['#3a2e1e','Rubble'],
   ].map(([c,n])=>`<span class="legend-item"><span class="legend-dot" style="background:${c}"></span>${n}</span>`).join('');
+
+  // ── Token overlay ─────────────────────────────────────────────────────────────
+  _drawTokens(ovCtx,mapData.tokens,W,H,TS,null);
+
+  let _drag=null;
+  function cvXY(e){
+    const rc=ovCanvas.getBoundingClientRect();
+    const px=e.clientX-rc.left, py=e.clientY-rc.top;
+    return {px,py,tx:Math.floor(px/TS),ty:Math.floor(py/TS)};
+  }
+  ovCanvas.addEventListener('mousedown',e=>{
+    const {px,py,tx,ty}=cvXY(e);
+    const tok=mapData.tokens.find(t=>t.x===tx&&t.y===ty);
+    if (tok){_drag={id:tok.id,px,py};_drawTokens(ovCtx,mapData.tokens,W,H,TS,_drag);}
+    else if (_tokenMode){_placeToken(mapData,tx,ty);_drawTokens(ovCtx,mapData.tokens,W,H,TS,null);}
+  });
+  ovCanvas.addEventListener('mousemove',e=>{
+    if (!_drag) return;
+    const {px,py}=cvXY(e); _drag.px=px;_drag.py=py;
+    _drawTokens(ovCtx,mapData.tokens,W,H,TS,_drag);
+  });
+  ovCanvas.addEventListener('mouseup',e=>{
+    if (!_drag) return;
+    const {tx,ty}=cvXY(e);
+    const tok=mapData.tokens.find(t=>t.id===_drag.id);
+    if (tok){tok.x=Math.max(0,Math.min(W-1,tx));tok.y=Math.max(0,Math.min(H-1,ty));}
+    _drag=null; _drawTokens(ovCtx,mapData.tokens,W,H,TS,null);
+  });
+  ovCanvas.addEventListener('mouseleave',()=>{
+    if (!_drag) return; _drag=null; _drawTokens(ovCtx,mapData.tokens,W,H,TS,null);
+  });
+  ovCanvas.addEventListener('contextmenu',e=>{
+    e.preventDefault();
+    const {tx,ty}=cvXY(e);
+    const idx=mapData.tokens.findIndex(t=>t.x===tx&&t.y===ty);
+    if (idx>=0){mapData.tokens.splice(idx,1);_drawTokens(ovCtx,mapData.tokens,W,H,TS,null);}
+  });
 }
 
-function _mapTile(ctx, x, y, t, TS, isInRoom) {
+function _mapTile(ctx, x, y, t, TS, isInRoom, pal) {
   const px = x*TS, py = y*TS;
   const r = (i) => _ht(x, y, i);
-  const floorBase = isInRoom ? '#cba87c' : '#a88a60';
-  const floorDark  = isInRoom ? '#b5946a' : '#8e7250';
+  const floorBase = isInRoom ? (pal.room||'#cba87c') : (pal.corr||'#a88a60');
 
   if (t === T.FLOOR || t === T.PILLAR || t === T.CHEST || t === T.STAIRS || t === T.TRAP) {
-    ctx.fillStyle = r(90) > 0.80 ? floorDark : floorBase;
-    ctx.fillRect(px, py, TS, TS);
+    ctx.fillStyle = floorBase; ctx.fillRect(px, py, TS, TS);
+    if (r(90) > 0.82) { ctx.fillStyle = 'rgba(0,0,0,0.09)'; ctx.fillRect(px,py,TS,TS); }
     return;
   }
   if (t === T.DOOR) {
@@ -620,6 +702,73 @@ function _mapFeature(ctx, x, y, t, TS) {
     ctx.fillStyle = 'rgba(165,45,45,0.32)'; ctx.beginPath(); ctx.arc(m,n,2,0,Math.PI*2); ctx.fill();
     return;
   }
+}
+
+// ── Token / counter system ────────────────────────────────────────────────────
+
+window.setTokenMode = function(type) {
+  _tokenMode = (_tokenMode === type) ? null : type;
+  document.querySelectorAll('.token-btn[data-type]').forEach(b => {
+    b.classList.toggle('active', b.dataset.type === _tokenMode);
+  });
+  const hint = document.getElementById('token-hint');
+  if (hint) hint.textContent = _tokenMode
+    ? `Click map to place ${_tokenMode} — right-click token to remove — drag to move`
+    : '';
+};
+
+window.clearTokens = function() {
+  if (!_currentMap) return;
+  _currentMap.tokens = [];
+  _tokenCounts = {player:0,enemy:0,npc:0};
+  const ov = document.getElementById('token-canvas');
+  if (ov && _currentMap) {
+    const c = ov.getContext('2d');
+    c.clearRect(0,0,ov.width,ov.height);
+  }
+};
+
+function _placeToken(mapData, tx, ty) {
+  if (tx<0||ty<0||tx>=mapData.W||ty>=mapData.H) return;
+  if ((mapData.grid[ty]?.[tx]??T.WALL) === T.WALL) return;
+  if (mapData.tokens.find(t=>t.x===tx&&t.y===ty)) return;
+  const type = _tokenMode;
+  _tokenCounts[type] = (_tokenCounts[type]||0) + 1;
+  mapData.tokens.push({
+    id: uuid(), x:tx, y:ty, type,
+    label: TOKEN_PFX[type]+_tokenCounts[type],
+    color: TOKEN_COLORS[type],
+  });
+}
+
+function _drawTokens(ovCtx, tokens, W, H, TS, drag) {
+  ovCtx.clearRect(0, 0, W*TS, H*TS);
+  tokens.forEach(tok => {
+    const dragging = drag && drag.id === tok.id;
+    const cx = dragging ? drag.px : tok.x*TS + TS/2;
+    const cy = dragging ? drag.py : tok.y*TS + TS/2;
+    const rad = TS * 0.38;
+    // Drop shadow
+    ovCtx.fillStyle = 'rgba(0,0,0,0.52)';
+    ovCtx.beginPath(); ovCtx.arc(cx+1.5,cy+2.5,rad,0,Math.PI*2); ovCtx.fill();
+    // Token body
+    ovCtx.fillStyle = tok.color || TOKEN_COLORS[tok.type] || '#888';
+    ovCtx.beginPath(); ovCtx.arc(cx,cy,rad,0,Math.PI*2); ovCtx.fill();
+    // White ring
+    ovCtx.strokeStyle='rgba(255,255,255,0.88)'; ovCtx.lineWidth=1.6;
+    ovCtx.beginPath(); ovCtx.arc(cx,cy,rad,0,Math.PI*2); ovCtx.stroke();
+    // Inner shine
+    const shine=ovCtx.createRadialGradient(cx-rad*.3,cy-rad*.3,0,cx,cy,rad);
+    shine.addColorStop(0,'rgba(255,255,255,0.22)'); shine.addColorStop(1,'rgba(255,255,255,0)');
+    ovCtx.fillStyle=shine; ovCtx.beginPath(); ovCtx.arc(cx,cy,rad,0,Math.PI*2); ovCtx.fill();
+    // Label text
+    const fs = Math.max(7,Math.floor(TS*0.30));
+    ovCtx.fillStyle='#fff'; ovCtx.font=`bold ${fs}px sans-serif`;
+    ovCtx.textAlign='center'; ovCtx.textBaseline='middle';
+    ovCtx.shadowColor='rgba(0,0,0,0.7)'; ovCtx.shadowBlur=2;
+    ovCtx.fillText(tok.label,cx,cy);
+    ovCtx.shadowBlur=0;
+  });
 }
 
 // ── Music ─────────────────────────────────────────────────────────────────────
