@@ -155,12 +155,19 @@
     .mood-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px 14px 16px; cursor: pointer; transition: all .16s; text-align: center; user-select: none; position: relative; }
     .mood-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
     .mood-card.active  { border-color: var(--gold); background: #1a1200; box-shadow: 0 0 24px rgba(240,192,64,.15); }
-    .mood-card.active.purple { border-color: var(--purp2); background: #150820; box-shadow: 0 0 24px rgba(176,108,204,.2); }
+    .mood-card.theme-warm.active    { border-color: #f0a030; background: #1a1200; box-shadow: 0 0 24px rgba(240,160,48,.22); }
+    .mood-card.theme-red.active     { border-color: #c84040; background: #1a0a0a; box-shadow: 0 0 26px rgba(200,64,64,.25); }
+    .mood-card.theme-crimson.active { border-color: #a01818; background: #160606; box-shadow: 0 0 28px rgba(160,24,24,.28); }
+    .mood-card.theme-green.active   { border-color: #3a8a3a; background: #0a150a; box-shadow: 0 0 24px rgba(58,138,58,.22); }
+    .mood-card.theme-purple.active  { border-color: var(--purp2); background: #130a1e; box-shadow: 0 0 26px rgba(176,108,204,.28); }
+    .mood-card.theme-void.active    { border-color: #6060a0; background: #080810; box-shadow: 0 0 28px rgba(96,96,160,.22); }
+    .mood-card.theme-gold.active    { border-color: var(--gold); background: #1a1400; box-shadow: 0 0 32px rgba(240,192,64,.30); }
     .mood-card.loading { border-color: var(--accent); opacity: .75; pointer-events: none; }
     .mood-bpm { position: absolute; top: 8px; right: 8px; font-size: 10px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; }
     .mood-icon { font-size: 28px; margin-bottom: 7px; }
     .mood-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
     .mood-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+    .mood-inst { font-size: 10px; color: var(--border); margin-top: 5px; letter-spacing: 0.04em; }
     .music-vol-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .music-vol-row label { color: var(--muted); font-size: 12px; }
     input[type=range] { accent-color: var(--accent); cursor: pointer; width: 100px; }

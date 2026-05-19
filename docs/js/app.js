@@ -525,6 +525,17 @@ function drawMapCanvas(mapData) {
     });
   }
 
+  // P10 — edge vignette (atmospheric depth)
+  const vgCX=W*TS/2, vgCY=H*TS/2;
+  const vgR1=Math.min(W*TS,H*TS)*0.28, vgR2=Math.max(W*TS,H*TS)*0.80;
+  const vg=ctx.createRadialGradient(vgCX,vgCY,vgR1,vgCX,vgCY,vgR2);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.52)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W*TS,H*TS);
+
+  // P11 — compass rose (bottom-right corner)
+  const crSz = Math.max(26, Math.min(W,H)*TS*0.048);
+  _drawCompassRose(ctx, W*TS - crSz - 14, H*TS - crSz - 14, crSz, pal);
+
   const legendEl=document.getElementById('map-legend');
   if (legendEl) legendEl.innerHTML=[
     [pal.void,'Wall'],[pal.room,'Room'],[pal.corr,'Corridor'],['#5a2e10','Door'],
@@ -771,6 +782,54 @@ function _drawTokens(ovCtx, tokens, W, H, TS, drag) {
   });
 }
 
+function _drawCompassRose(ctx, cx, cy, sz, pal) {
+  const gold = '#c8973c';
+  const dark = pal.void || '#0e0c09';
+  const PI = Math.PI;
+  const C = Math.cos, S = Math.sin;
+  ctx.save();
+
+  // Dark disc + gold ring
+  ctx.beginPath(); ctx.arc(cx, cy, sz + 5, 0, 2*PI);
+  ctx.fillStyle = 'rgba(0,0,0,0.68)'; ctx.fill();
+  ctx.strokeStyle = gold; ctx.lineWidth = 1.4; ctx.stroke();
+
+  // Inner decorative ring
+  ctx.beginPath(); ctx.arc(cx, cy, sz * 0.38, 0, 2*PI);
+  ctx.strokeStyle = 'rgba(200,151,60,0.40)'; ctx.lineWidth = 0.7; ctx.stroke();
+
+  function pt(ang, len, hw, bk, fill) {
+    ctx.beginPath();
+    ctx.moveTo(cx+C(ang)*len,      cy+S(ang)*len);
+    ctx.lineTo(cx+C(ang+PI/2)*hw,  cy+S(ang+PI/2)*hw);
+    ctx.lineTo(cx+C(ang+PI)*bk,    cy+S(ang+PI)*bk);
+    ctx.lineTo(cx+C(ang-PI/2)*hw,  cy+S(ang-PI/2)*hw);
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = dark; ctx.lineWidth = 0.6; ctx.stroke();
+  }
+
+  // Cardinal points N/E/S/W
+  [-PI/2, 0, PI/2, PI].forEach(a => pt(a, sz, sz*.18, sz*.14, gold));
+  // Diagonal points NE/SE/SW/NW
+  [-PI/4, PI/4, 3*PI/4, -3*PI/4].forEach(a => pt(a, sz*.58, sz*.11, sz*.11, 'rgba(200,151,60,0.55)'));
+
+  // Center jewel
+  ctx.beginPath(); ctx.arc(cx, cy, sz*.12, 0, 2*PI);
+  ctx.fillStyle = dark; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, sz*.06, 0, 2*PI);
+  ctx.fillStyle = gold; ctx.fill();
+
+  // N label above north point
+  const fs = Math.max(9, Math.floor(sz * .42));
+  ctx.font = `bold ${fs}px serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = dark; ctx.fillText('N', cx + .8, cy - sz - fs * .5 + 1);
+  ctx.fillStyle = gold; ctx.fillText('N', cx,      cy - sz - fs * .5);
+
+  ctx.restore();
+}
+
 // ── Music ─────────────────────────────────────────────────────────────────────
 
 function renderMusic() {
@@ -795,9 +854,10 @@ function renderMusic() {
   Object.entries(Music.MOODS).forEach(([key, m]) => {
     const card = document.createElement('div');
     card.className = 'mood-card';
+    if (m.theme) card.classList.add('theme-' + m.theme);
     card.dataset.mood = key;
     if (Music.getActive() === key) card.classList.add('active');
-    card.innerHTML = `<span class="mood-bpm">${m.bpm} bpm</span><div class="mood-icon">${m.icon}</div><div class="mood-name">${m.name}</div><div class="mood-desc">${m.desc}</div>`;
+    card.innerHTML = `<span class="mood-bpm">${m.bpm} bpm</span><div class="mood-icon">${m.icon}</div><div class="mood-name">${m.name}</div><div class="mood-desc">${m.desc}</div>${m.inst?`<div class="mood-inst">${m.inst}</div>`:''}`;
     card.addEventListener('click', async () => {
       if (Music.getActive() === key && !Music.isLoading()) Music.stop();
       else await Music.play(key);
