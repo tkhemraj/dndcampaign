@@ -48,7 +48,7 @@ async function getPlayer(name) {
   await ensureCtx();
   const p = await Soundfont.instrument(_ctx, name, {
     soundfont: 'FluidR3_GM',
-    nameToUrl: (n, sf, fmt) => `${SF_ROOT}${n}-${fmt}.js`,
+    nameToUrl: (n, sf, fmt) => `${SF_ROOT}${n.replace(/-/g, '_')}-${fmt}.js`,
     destination: _conv,
     gain: 2.0,
   });

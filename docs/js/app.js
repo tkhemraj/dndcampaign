@@ -292,7 +292,7 @@ window.confirmDeleteCampaign=function(){
 
 // ── Maps ──────────────────────────────────────────────────────────────────────
 
-const MAP_TS = 32;
+const MAP_TS = 20;
 let _currentMap = null;
 
 function _ht(x, y, i) {
@@ -365,14 +365,15 @@ function drawMapCanvas(mapData) {
   titleEl.textContent = mapData.title;
   wrap.appendChild(titleEl);
 
+  const scroll = document.createElement('div');
+  scroll.style.cssText = 'overflow:auto;max-height:560px;border-radius:4px;background:#0e0c09;';
+  wrap.appendChild(scroll);
+
   const canvas = document.createElement('canvas');
   canvas.id = 'map-canvas';
   canvas.width = W * TS; canvas.height = H * TS;
-  canvas.style.maxWidth = '100%';
-  canvas.style.height = 'auto';
   canvas.style.display = 'block';
-  canvas.style.borderRadius = '3px';
-  wrap.appendChild(canvas);
+  scroll.appendChild(canvas);
 
   const ctx = canvas.getContext('2d');
   const g = mapData.grid;
@@ -381,91 +382,125 @@ function drawMapCanvas(mapData) {
     if (tx < 0 || ty < 0 || tx >= W || ty >= H) return T.WALL;
     return (g[ty]?.[tx]) ?? T.WALL;
   }
-  function blocksAO(tx, ty) {
-    const t = tileAt(tx, ty);
-    return t === T.WALL || t === T.TREES;
+  function isWall(tx, ty) { return tileAt(tx,ty) === T.WALL; }
+  function isOpen(tx, ty) { return tileAt(tx,ty) !== T.WALL; }
+  function inRoom(tx, ty) {
+    if (!mapData.rooms || !mapData.rooms.length) return false;
+    return mapData.rooms.some(r => tx>=r.x && tx<r.x+r.w && ty>=r.y && ty<r.y+r.h);
   }
 
-  // Pass 1 — base tile fill
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) _mapBase(ctx, x, y, tileAt(x,y), TS);
+  // Pass 1 — void fill
+  ctx.fillStyle = '#0e0c09';
+  ctx.fillRect(0, 0, W*TS, H*TS);
 
-  // Pass 2 — ambient occlusion (walls cast shadows onto adjacent floor tiles)
-  const aoW = TS * 0.68;
+  // Pass 2 — floor tiles
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const t = tileAt(x, y);
+    if (t !== T.WALL) _mapTile(ctx, x, y, t, TS, inRoom(x, y));
+  }
+
+  // Pass 3 — flagstone joints every 2 tiles (floor only)
+  ctx.strokeStyle = 'rgba(55,35,15,0.30)'; ctx.lineWidth = 0.5;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      if (blocksAO(x, y)) continue;
+      if (isWall(x, y)) continue;
       const px = x*TS, py = y*TS;
-      [[0,-1, px,    py,    px,    py+aoW],
-       [0, 1, px,    py+TS, px,    py+TS-aoW],
-       [-1,0, px,    py,    px+aoW,py],
-       [1, 0, px+TS, py,    px+TS-aoW,py]
+      if (x % 2 === 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py+TS); ctx.stroke(); }
+      if (y % 2 === 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px+TS, py); ctx.stroke(); }
+    }
+  }
+
+  // Pass 4 — ambient occlusion (walls cast shadows onto adjacent floor)
+  const aoW = TS * 0.72;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (isWall(x, y)) continue;
+      const px = x*TS, py = y*TS;
+      [[0,-1,px,py,px,py+aoW],[0,1,px,py+TS,px,py+TS-aoW],
+       [-1,0,px,py,px+aoW,py],[1,0,px+TS,py,px+TS-aoW,py]
       ].forEach(([dx,dy,gx0,gy0,gx1,gy1]) => {
-        if (!blocksAO(x+dx, y+dy)) return;
+        if (!isWall(x+dx, y+dy)) return;
         const gr = ctx.createLinearGradient(gx0,gy0,gx1,gy1);
-        gr.addColorStop(0,'rgba(0,0,0,0.52)');
+        gr.addColorStop(0,'rgba(0,0,0,0.58)');
         gr.addColorStop(1,'rgba(0,0,0,0)');
         ctx.fillStyle = gr; ctx.fillRect(px, py, TS, TS);
       });
     }
   }
 
-  // Pass 3 — feature overlays (pillars, chests, stairs, traps)
+  // Pass 5 — thick ink outlines at wall→floor edges + south-face depth strip
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (!isWall(x, y)) continue;
+      const px = x*TS, py = y*TS;
+      if (isOpen(x, y+1)) {
+        ctx.strokeStyle = 'rgba(90,65,35,0.6)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(px,py+TS-1); ctx.lineTo(px+TS,py+TS-1); ctx.stroke();
+        ctx.strokeStyle = '#08060400'; ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(8,6,4,0.95)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(px,py+TS); ctx.lineTo(px+TS,py+TS); ctx.stroke();
+      }
+      if (isOpen(x, y-1)) {
+        ctx.strokeStyle = 'rgba(8,6,4,0.95)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+TS,py); ctx.stroke();
+      }
+      if (isOpen(x+1, y)) {
+        ctx.strokeStyle = 'rgba(8,6,4,0.95)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(px+TS,py); ctx.lineTo(px+TS,py+TS); ctx.stroke();
+      }
+      if (isOpen(x-1, y)) {
+        ctx.strokeStyle = 'rgba(8,6,4,0.95)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px,py+TS); ctx.stroke();
+      }
+    }
+  }
+
+  // Pass 6 — feature overlays
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) _mapFeature(ctx, x, y, tileAt(x,y), TS);
 
-  // Pass 4 — subtle 5-foot grid
-  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 0.5;
+  // Pass 7 — very subtle 5-foot grid
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 0.3;
   for (let xi = 0; xi <= W; xi++) { ctx.beginPath(); ctx.moveTo(xi*TS,0); ctx.lineTo(xi*TS,H*TS); ctx.stroke(); }
   for (let yi = 0; yi <= H; yi++) { ctx.beginPath(); ctx.moveTo(0,yi*TS); ctx.lineTo(W*TS,yi*TS); ctx.stroke(); }
 
-  // Pass 5 — room labels
+  // Pass 8 — room labels
   if (mapData.labels && mapData.labels.length) {
-    const fs = Math.max(8, Math.floor(TS * 0.36));
-    ctx.font = `bold ${fs}px sans-serif`;
+    const fs = Math.max(8, Math.floor(TS * 0.38));
+    ctx.font = `bold ${fs}px serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     mapData.labels.forEach(l => {
-      const tx = l.x*TS+TS/2, ty = l.y*TS+TS/2;
+      const lx = l.x*TS+TS/2, ly = l.y*TS+TS/2;
       const tw = ctx.measureText(l.text).width;
-      ctx.fillStyle = 'rgba(10,8,5,0.78)';
-      ctx.fillRect(tx-tw/2-3, ty-fs/2-2, tw+6, fs+4);
-      ctx.fillStyle = '#f0c040';
-      ctx.fillText(l.text, tx, ty);
+      ctx.fillStyle = 'rgba(10,8,5,0.82)';
+      ctx.fillRect(lx-tw/2-4, ly-fs/2-3, tw+8, fs+6);
+      ctx.fillStyle = '#e8b840';
+      ctx.fillText(l.text, lx, ly);
     });
   }
 
   const legendEl = document.getElementById('map-legend');
   if (legendEl) legendEl.innerHTML = [
-    ['#1e1812','Wall'],['#7a5c3a','Floor'],['#5a2e10','Door'],['#1e4a70','Water'],
-    ['#380902','Lava'],['#142210','Trees'],['#8a7558','Road'],['#3a2e1e','Rubble'],
-    ['#5c3212','Chest'],['#8c6c48','Stairs'],['#2a4a1a','Grass'],['#d0e0f0','Snow'],
+    ['#0e0c09','Wall'],['#cba87c','Room'],['#a88a60','Corridor'],['#5a2e10','Door'],
+    ['#1e4a70','Water'],['#380902','Lava'],['#142210','Trees'],['#8a7558','Road'],
+    ['#3a2e1e','Rubble'],['#2a4a1a','Grass'],['#d0e0f0','Snow'],
   ].map(([c,n])=>`<span class="legend-item"><span class="legend-dot" style="background:${c}"></span>${n}</span>`).join('');
 }
 
-function _mapBase(ctx, x, y, t, TS) {
+function _mapTile(ctx, x, y, t, TS, isInRoom) {
   const px = x*TS, py = y*TS;
   const r = (i) => _ht(x, y, i);
+  const floorBase = isInRoom ? '#cba87c' : '#a88a60';
+  const floorDark  = isInRoom ? '#b5946a' : '#8e7250';
 
-  if (t === T.WALL) {
-    ctx.fillStyle = '#1e1812'; ctx.fillRect(px, py, TS, TS);
-    for (let i = 0; i < 4; i++) {
-      const fx = px+r(i*6)*(TS-2)+1, fy = py+r(i*6+1)*(TS-2)+1;
-      const fw = 1+r(i*6+2)*4, fh = 1+r(i*6+3)*2;
-      ctx.fillStyle = r(i*6+4) > 0.62
-        ? `rgba(68,50,32,${0.35+r(i*6+5)*0.25})`
-        : `rgba(10,6,3,${0.38+r(i*6+5)*0.28})`;
-      ctx.fillRect(fx, fy, fw, fh);
-    }
-    return;
-  }
   if (t === T.FLOOR || t === T.PILLAR || t === T.CHEST || t === T.STAIRS || t === T.TRAP) {
-    ctx.fillStyle = ((x+y)&1) ? '#6c4e2e' : '#7c5e3e'; ctx.fillRect(px, py, TS, TS);
-    ctx.strokeStyle = 'rgba(22,13,6,0.28)'; ctx.lineWidth = 0.5; ctx.strokeRect(px+.5, py+.5, TS-1, TS-1);
-    if (r(90) > 0.87) { ctx.fillStyle = 'rgba(0,0,0,0.06)'; ctx.fillRect(px, py, TS, TS); }
+    ctx.fillStyle = r(90) > 0.80 ? floorDark : floorBase;
+    ctx.fillRect(px, py, TS, TS);
     return;
   }
   if (t === T.DOOR) {
-    ctx.fillStyle = ((x+y)&1) ? '#6c4e2e' : '#7c5e3e'; ctx.fillRect(px, py, TS, TS);
+    ctx.fillStyle = floorBase; ctx.fillRect(px, py, TS, TS);
     const dw=TS*.55, dh=TS*.80, dx=px+(TS-dw)/2, dy=py+(TS-dh)/2;
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(dx+2,dy+2,dw,dh);
+    ctx.fillStyle = 'rgba(0,0,0,0.30)'; ctx.fillRect(dx+2,dy+2,dw,dh);
     ctx.fillStyle = '#5a2e10'; ctx.fillRect(dx,dy,dw,dh);
     ctx.fillStyle = '#482208';
     ctx.fillRect(dx+2,dy+2,dw-4,dh*.44); ctx.fillRect(dx+2,dy+dh*.52,dw-4,dh*.44);
@@ -477,7 +512,7 @@ function _mapBase(ctx, x, y, t, TS) {
     const gw = ctx.createLinearGradient(px,py,px,py+TS);
     gw.addColorStop(0,'#1e4a70'); gw.addColorStop(1,'#0c2840');
     ctx.fillStyle = gw; ctx.fillRect(px,py,TS,TS);
-    ctx.strokeStyle = 'rgba(120,200,255,0.2)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(120,200,255,0.22)'; ctx.lineWidth = 1;
     for (let wi = 0; wi < 3; wi++) {
       const wy = py+(wi+0.65)*TS/3.1;
       ctx.beginPath(); ctx.moveTo(px, wy+Math.sin((x+wi)*.85)*2);
@@ -495,31 +530,27 @@ function _mapBase(ctx, x, y, t, TS) {
       ctx.strokeStyle = gl; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(lx1,ly1); ctx.lineTo(lx2,ly2); ctx.stroke();
     }
-    ctx.fillStyle = 'rgba(160,40,0,0.09)'; ctx.fillRect(px,py,TS,TS);
     return;
   }
   if (t === T.TREES) {
     ctx.fillStyle = '#142210'; ctx.fillRect(px,py,TS,TS);
     const numT = 1+(r(0)>.58?1:0);
     for (let ti = 0; ti < numT; ti++) {
-      const tcx=px+5+r(ti*7+1)*(TS-10), tcy=py+5+r(ti*7+2)*(TS-10), trad=5+r(ti*7+3)*7;
+      const tcx=px+4+r(ti*7+1)*(TS-8), tcy=py+4+r(ti*7+2)*(TS-8), trad=4+r(ti*7+3)*5;
       const green = Math.floor(72+r(ti*7+4)*45);
       ctx.fillStyle = `rgba(22,${green},15,0.93)`; ctx.beginPath(); ctx.arc(tcx,tcy,trad,0,Math.PI*2); ctx.fill();
       ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.arc(tcx+.8,tcy+1,trad*.52,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.beginPath(); ctx.arc(tcx-trad*.28,tcy-trad*.28,trad*.38,0,Math.PI*2); ctx.fill();
     }
     return;
   }
   if (t === T.ROAD) {
     ctx.fillStyle = '#8a7558'; ctx.fillRect(px,py,TS,TS);
-    ctx.strokeStyle = 'rgba(55,42,25,0.32)'; ctx.lineWidth = 0.7;
-    for (let li = 1; li <= 2; li++) { ctx.beginPath(); ctx.moveTo(px,py+li*TS/3); ctx.lineTo(px+TS,py+li*TS/3); ctx.stroke(); }
     return;
   }
   if (t === T.RUBBLE) {
     ctx.fillStyle = '#3a2e1e'; ctx.fillRect(px,py,TS,TS);
-    for (let ri = 0; ri < 6; ri++) {
-      const rfx=px+r(ri*7)*TS, rfy=py+r(ri*7+1)*TS, rfw=2+r(ri*7+2)*5, rfh=1+r(ri*7+3)*3;
+    for (let ri = 0; ri < 4; ri++) {
+      const rfx=px+r(ri*7)*TS, rfy=py+r(ri*7+1)*TS, rfw=2+r(ri*7+2)*4, rfh=1+r(ri*7+3)*3;
       ctx.save(); ctx.translate(rfx+rfw/2,rfy+rfh/2); ctx.rotate(r(ri*7+4)*Math.PI);
       ctx.fillStyle = ri%2===0 ? 'rgba(95,78,55,0.85)' : 'rgba(48,38,25,0.85)';
       ctx.fillRect(-rfw/2,-rfh/2,rfw,rfh); ctx.restore();
@@ -528,30 +559,20 @@ function _mapBase(ctx, x, y, t, TS) {
   }
   if (t === T.GRASS) {
     const gv = r(40);
-    ctx.fillStyle = `rgb(${Math.floor(26+gv*16)},${Math.floor(68+gv*36)},${Math.floor(16+gv*12)})`; ctx.fillRect(px,py,TS,TS);
-    ctx.strokeStyle = `rgba(${Math.floor(38+gv*18)},${Math.floor(95+gv*28)},${Math.floor(22+gv*14)},0.42)`; ctx.lineWidth = 0.6;
-    for (let gi = 0; gi < 5; gi++) {
-      const gsx=px+r(gi*3+41)*TS, gsy=py+r(gi*3+42)*(TS*.62)+TS*.3;
-      ctx.beginPath(); ctx.moveTo(gsx,gsy+3); ctx.quadraticCurveTo(gsx+(r(gi*3+43)-.5)*5,gsy,gsx+(r(gi*3+43)-.5)*2,gsy-5); ctx.stroke();
-    }
+    ctx.fillStyle = `rgb(${Math.floor(28+gv*14)},${Math.floor(72+gv*32)},${Math.floor(18+gv*10)})`; ctx.fillRect(px,py,TS,TS);
     return;
   }
   if (t === T.DIRT) {
     const dv = r(50);
-    ctx.fillStyle = `rgb(${Math.floor(126+dv*26)},${Math.floor(96+dv*20)},${Math.floor(56+dv*16)})`; ctx.fillRect(px,py,TS,TS);
-    for (let pi = 0; pi < 3; pi++) {
-      ctx.fillStyle = `rgba(75,58,38,${.35+r(pi*4+51)*.25})`;
-      ctx.beginPath(); ctx.arc(px+r(pi*4+52)*TS, py+r(pi*4+53)*TS, .8+r(pi*4+54)*1.2,0,Math.PI*2); ctx.fill();
-    }
+    ctx.fillStyle = `rgb(${Math.floor(130+dv*22)},${Math.floor(100+dv*18)},${Math.floor(60+dv*14)})`; ctx.fillRect(px,py,TS,TS);
     return;
   }
   if (t === T.SNOW) {
     const sv = r(60);
-    ctx.fillStyle = `rgb(${Math.floor(205+sv*45)},${Math.floor(212+sv*38)},${Math.floor(222+sv*30)})`; ctx.fillRect(px,py,TS,TS);
-    if (sv > 0.83) { ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.beginPath(); ctx.arc(px+r(61)*TS,py+r(62)*TS,.8,0,Math.PI*2); ctx.fill(); }
+    ctx.fillStyle = `rgb(${Math.floor(208+sv*42)},${Math.floor(215+sv*35)},${Math.floor(225+sv*28)})`; ctx.fillRect(px,py,TS,TS);
     return;
   }
-  ctx.fillStyle = '#1e1812'; ctx.fillRect(px,py,TS,TS);
+  ctx.fillStyle = '#0e0c09'; ctx.fillRect(px,py,TS,TS);
 }
 
 function _mapFeature(ctx, x, y, t, TS) {
