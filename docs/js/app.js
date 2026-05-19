@@ -1,101 +1,4 @@
 'use strict';
-// App state, router, all view renderers, music engine, combat tracker
-
-// ── Music Engine ──────────────────────────────────────────────────────────────
-
-const MOODS = {
-  tavern:    {icon:'🍺',name:'Tavern',    bpm:126,desc:'Warm folk — Ruby Sunrise vibes',       when:'A warm interior, between adventures',
-    melody:['C4','E4','G4','A4','G4','E4','C5','B4','A4','G4','F4','E4','D4','C4','E4','G4'],
-    bass:['C2','G2','F2','G2'],chord:[['C3','E3','G3'],['F3','A3','C4'],['G3','B3','D4'],['C3','E3','G3']],perc:true,purple:false},
-  dungeon:   {icon:'💀',name:'Dungeon',   bpm:52, desc:'Dark, sparse, unsettling',             when:'Slow exploration, the dark between rooms',
-    melody:['D3','F3','Ab3','D3','C3','Eb3','F3','D3',null,null,'D3','Bb2',null,'F2',null,null],
-    bass:['D1','D1','A1','D1'],chord:[['D2','F2','Ab2'],['Bb1','D2','F2'],['A1','C2','Eb2'],['D2','F2','Ab2']],perc:false,purple:false},
-  combat:    {icon:'⚔',name:'Combat',   bpm:152,desc:'Fast, driving, relentless',             when:'Standard fights — fast and kinetic',
-    melody:['E4','G4','A4','E4','D4','E4','B3','E4','G4','A4','C5','B4','G4','E4','F#4','E4'],
-    bass:['E2','A1','B1','E2'],chord:[['E2','G2','B2'],['A1','C2','E2'],['B1','D2','F#2'],['E2','G2','B2']],perc:true,purple:false},
-  boss:      {icon:'🐉',name:'Boss Fight',bpm:168,desc:'Epic, crushing, terrifying',           when:'The thing at the end of the hall',
-    melody:['B3','C4','B3','G3','B3','F3','B3','E3','B3','C4','D4','C4','B3',null,'G3','B3'],
-    bass:['B1','E1','F1','B1'],chord:[['B1','D2','F2'],['C2','E2','G2'],['E1','G1','B1'],['B1','D2','F2']],perc:true,purple:false},
-  wilderness:{icon:'🌲',name:'Wilderness',bpm:84, desc:'Flowing, open, vast',                  when:'Travel, Greying Wildlands, open sky',
-    melody:['G4','A4','B4','D5','G4','A4','G4','E4','D4','G4','A4','B4','D5','B4','A4','G4'],
-    bass:['G2','D2','C2','G2'],chord:[['G2','B2','D3'],['D2','F#2','A2'],['C2','E2','G2'],['G2','B2','D3']],perc:false,purple:false},
-  kryn:      {icon:'🌑',name:'Xhorhas / Kryn',bpm:68,desc:'Ethereal, alien, Dunamantic',       when:'Rosohna, Dunamancy, the Dynasty',
-    melody:['F#3','A3','B3','F#3','E3','F#3','C#4','B3','A3','F#3',null,'E3','F#3','G#3','A3','F#3'],
-    bass:['F#1','B1','C#2','F#1'],chord:[['F#2','A2','C#3'],['B1','D2','F#2'],['C#2','E2','G#2'],['F#2','A2','C#3']],perc:false,purple:true},
-  calamity:  {icon:'💥',name:'The Calamity',bpm:60,desc:'Apocalyptic, ancient horror',         when:'Eiselcross, Aeor ruins, ancient dread',
-    melody:['C3',null,'Db3',null,'D3','Eb3',null,'F3',null,'Gb3','G3','Ab3',null,'A3','Bb3',null],
-    bass:['C1','F#1','C1','Bb0'],chord:[['C2','Eb2','Gb2'],['F#1','A1','C2'],['Bb1','Db2','E2'],['C2','Eb2','Gb2']],perc:false,purple:true},
-  triumph:   {icon:'🏆',name:'Victory',    bpm:112,desc:'Bright fanfare — they survived. Barely.',when:'Session end, major victory',
-    melody:['C4','E4','G4','C5','B4','G4','A4','F4','G4','E4','C4','E4','G4','B4','C5',null],
-    bass:['C2','G2','F2','C2'],chord:[['C3','E3','G3'],['G2','B2','D3'],['F2','A2','C3'],['C3','E3','G3']],perc:true,purple:false},
-};
-
-let _mParts=[], _mSynths=[], _mActive=null, _mVol=-14;
-
-function musicStop() {
-  _mParts.forEach(p=>{try{p.stop();p.dispose();}catch(_){}});
-  _mSynths.forEach(s=>{try{s.dispose();}catch(_){}});
-  _mParts=[]; _mSynths=[];
-  Tone.getTransport().stop();
-  Tone.getTransport().cancel();
-  _mActive=null;
-  updateMusicMini();
-}
-
-async function musicPlay(key) {
-  await Tone.start();
-  musicStop();
-  const mood=MOODS[key]; if(!mood) return;
-  _mActive=key;
-  Tone.getTransport().bpm.value=mood.bpm;
-
-  const vol=new Tone.Volume(_mVol).toDestination();
-  const rev=new Tone.Reverb({decay:mood.bpm<80?4:1.8,wet:0.25}).connect(vol);
-  _mSynths.push(rev);
-
-  // Melody
-  const mel=new Tone.Synth({oscillator:{type:mood.bpm<80?'triangle':'sawtooth'},envelope:{attack:0.04,decay:0.18,sustain:0.5,release:0.7},volume:-8}).connect(rev);
-  _mSynths.push(mel);
-  const melPart=new Tone.Sequence((t,n)=>{if(n)mel.triggerAttackRelease(n,'8n',t);},mood.melody,'8n');
-  melPart.loop=true; _mParts.push(melPart);
-
-  // Bass
-  const bas=new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.06,decay:0.3,sustain:0.4,release:0.8},volume:-4}).connect(vol);
-  _mSynths.push(bas);
-  const basPart=new Tone.Sequence((t,n)=>{if(n)bas.triggerAttackRelease(n,'4n',t);},mood.bass,'4n');
-  basPart.loop=true; _mParts.push(basPart);
-
-  // Pad
-  const pad=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'sine'},envelope:{attack:0.4,decay:0.6,sustain:0.7,release:1.2},volume:-14}).connect(rev);
-  _mSynths.push(pad);
-  const padPart=new Tone.Sequence((t,ch)=>{if(ch&&ch.length)pad.triggerAttackRelease(ch,'2n',t);},mood.chord,'2n');
-  padPart.loop=true; _mParts.push(padPart);
-
-  // Percussion
-  if (mood.perc) {
-    const kick=new Tone.MembraneSynth({volume:-10}).connect(vol);
-    const snare=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.005,decay:0.1,sustain:0,release:0.1},volume:-16}).connect(vol);
-    _mSynths.push(kick,snare);
-    const fast=key==='combat'||key==='boss';
-    const kp=new Tone.Sequence((t,h)=>{if(h)kick.triggerAttackRelease('C1','8n',t);},fast?['8n',null,'8n',null,'8n',null,'8n',null]:['4n',null,null,null,'4n',null,null,null],'8n');
-    kp.loop=true; _mParts.push(kp);
-    const sp=new Tone.Sequence((t,h)=>{if(h)snare.triggerAttackRelease('8n',t);},[null,null,'4n',null,null,null,'4n',null],'8n');
-    sp.loop=true; _mParts.push(sp);
-  }
-
-  _mParts.forEach(p=>p.start(0));
-  Tone.getTransport().start();
-  updateMusicMini();
-}
-
-function updateMusicMini() {
-  const mini=document.getElementById('music-mini');
-  if (!mini) return;
-  const m=_mActive?MOODS[_mActive]:null;
-  mini.innerHTML=m
-    ? `<span class="mini-dot playing"></span><span class="mini-label">${m.icon} ${m.name}</span><button onclick="musicStop()" class="mini-stop">⏹</button>`
-    : `<span class="mini-dot"></span><span class="mini-label" style="color:var(--muted)">No music</span>`;
-}
 
 // ── State & Persistence ───────────────────────────────────────────────────────
 
@@ -207,7 +110,7 @@ function buildSidebar() {
     navigate('dashboard');
   });
 
-  updateMusicMini();
+  if (window.Music) Music.refreshUI();
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
@@ -389,9 +292,14 @@ window.confirmDeleteCampaign=function(){
 
 // ── Maps ──────────────────────────────────────────────────────────────────────
 
-const TILE_COLORS=['#2a1f14','#5a3e28','#8b5a1e','#1a3a5a','#6a1a0a','#1a3a14','#6a5030','#3a3028','#4a3018','#c8973c','#4a5a6a','#8a1010','#2a4a1a','#6a5030','#8a9aaa'];
-const FEATURE_MARKS={9:'★',10:'⊙',11:'✕',2:'▪',8:'◆'};
-let _currentMap=null;
+const MAP_TS = 32;
+let _currentMap = null;
+
+function _ht(x, y, i) {
+  let h = (Math.imul(x * 374761393 + i * 134775813, 1) + Math.imul(y, 1013904223)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1540483477) >>> 0;
+  return ((h ^ (h >>> 15)) >>> 0) / 4294967295;
+}
 
 function renderMaps() {
   const typeOpts=MAP_TYPES.map(t=>`<option value="${t.value}">${t.label}</option>`).join('');
@@ -448,121 +356,292 @@ window.saveMapToCampaign=function(){
 };
 
 function drawMapCanvas(mapData) {
-  const wrap=document.getElementById('map-wrap');
-  wrap.innerHTML='';
-  const TS=14;
-  const canvas=document.createElement('canvas');
-  canvas.id='map-canvas';
-  const W=mapData.W, H=mapData.H;
-  canvas.width=W*TS; canvas.height=H*TS;
-  canvas.style.maxWidth='100%';
-  canvas.style.imageRendering='pixelated';
+  const wrap = document.getElementById('map-wrap');
+  wrap.innerHTML = '';
+  const TS = MAP_TS, W = mapData.W, H = mapData.H;
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'map-title';
+  titleEl.textContent = mapData.title;
+  wrap.appendChild(titleEl);
+
+  const canvas = document.createElement('canvas');
+  canvas.id = 'map-canvas';
+  canvas.width = W * TS; canvas.height = H * TS;
+  canvas.style.maxWidth = '100%';
+  canvas.style.height = 'auto';
+  canvas.style.display = 'block';
+  canvas.style.borderRadius = '3px';
   wrap.appendChild(canvas);
 
-  const ctx=canvas.getContext('2d');
-  // Draw tiles
-  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
-    const t=mapData.grid[y]?.[x]??0;
-    ctx.fillStyle=TILE_COLORS[t]||TILE_COLORS[0];
-    ctx.fillRect(x*TS,y*TS,TS,TS);
+  const ctx = canvas.getContext('2d');
+  const g = mapData.grid;
+
+  function tileAt(tx, ty) {
+    if (tx < 0 || ty < 0 || tx >= W || ty >= H) return T.WALL;
+    return (g[ty]?.[tx]) ?? T.WALL;
   }
-  // Grid lines (faint)
-  ctx.strokeStyle='rgba(0,0,0,0.15)';
-  ctx.lineWidth=0.5;
-  for (let x=0;x<=W;x++){ctx.beginPath();ctx.moveTo(x*TS,0);ctx.lineTo(x*TS,H*TS);ctx.stroke();}
-  for (let y=0;y<=H;y++){ctx.beginPath();ctx.moveTo(0,y*TS);ctx.lineTo(W*TS,y*TS);ctx.stroke();}
-  // Feature marks
-  ctx.font=`${TS-2}px monospace`;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
-    const t=mapData.grid[y]?.[x]??0;
-    if (FEATURE_MARKS[t]) {
-      ctx.fillStyle=t===9?'#0e0c0a':t===10?'#f0c040':t===11?'#ff6060':'#c8973c';
-      ctx.fillText(FEATURE_MARKS[t],x*TS+TS/2,y*TS+TS/2);
+  function blocksAO(tx, ty) {
+    const t = tileAt(tx, ty);
+    return t === T.WALL || t === T.TREES;
+  }
+
+  // Pass 1 — base tile fill
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) _mapBase(ctx, x, y, tileAt(x,y), TS);
+
+  // Pass 2 — ambient occlusion (walls cast shadows onto adjacent floor tiles)
+  const aoW = TS * 0.68;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (blocksAO(x, y)) continue;
+      const px = x*TS, py = y*TS;
+      [[0,-1, px,    py,    px,    py+aoW],
+       [0, 1, px,    py+TS, px,    py+TS-aoW],
+       [-1,0, px,    py,    px+aoW,py],
+       [1, 0, px+TS, py,    px+TS-aoW,py]
+      ].forEach(([dx,dy,gx0,gy0,gx1,gy1]) => {
+        if (!blocksAO(x+dx, y+dy)) return;
+        const gr = ctx.createLinearGradient(gx0,gy0,gx1,gy1);
+        gr.addColorStop(0,'rgba(0,0,0,0.52)');
+        gr.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle = gr; ctx.fillRect(px, py, TS, TS);
+      });
     }
   }
-  // Room labels
-  if (mapData.labels) {
-    ctx.font=`bold ${TS-4}px sans-serif`;
-    ctx.textAlign='center'; ctx.textBaseline='top';
-    mapData.labels.forEach(l=>{
-      const px=l.x*TS, py=(l.y+1)*TS+2;
-      ctx.fillStyle='rgba(0,0,0,0.7)';
-      const w=ctx.measureText(l.text).width;
-      ctx.fillRect(px-w/2-2,py-1,w+4,TS-2);
-      ctx.fillStyle='#f0c040';
-      ctx.fillText(l.text,px,py);
+
+  // Pass 3 — feature overlays (pillars, chests, stairs, traps)
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) _mapFeature(ctx, x, y, tileAt(x,y), TS);
+
+  // Pass 4 — subtle 5-foot grid
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 0.5;
+  for (let xi = 0; xi <= W; xi++) { ctx.beginPath(); ctx.moveTo(xi*TS,0); ctx.lineTo(xi*TS,H*TS); ctx.stroke(); }
+  for (let yi = 0; yi <= H; yi++) { ctx.beginPath(); ctx.moveTo(0,yi*TS); ctx.lineTo(W*TS,yi*TS); ctx.stroke(); }
+
+  // Pass 5 — room labels
+  if (mapData.labels && mapData.labels.length) {
+    const fs = Math.max(8, Math.floor(TS * 0.36));
+    ctx.font = `bold ${fs}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    mapData.labels.forEach(l => {
+      const tx = l.x*TS+TS/2, ty = l.y*TS+TS/2;
+      const tw = ctx.measureText(l.text).width;
+      ctx.fillStyle = 'rgba(10,8,5,0.78)';
+      ctx.fillRect(tx-tw/2-3, ty-fs/2-2, tw+6, fs+4);
+      ctx.fillStyle = '#f0c040';
+      ctx.fillText(l.text, tx, ty);
     });
   }
 
-  // Title
-  const titleEl=document.createElement('div');
-  titleEl.className='map-title';
-  titleEl.textContent=mapData.title;
-  wrap.insertBefore(titleEl,canvas);
+  const legendEl = document.getElementById('map-legend');
+  if (legendEl) legendEl.innerHTML = [
+    ['#1e1812','Wall'],['#7a5c3a','Floor'],['#5a2e10','Door'],['#1e4a70','Water'],
+    ['#380902','Lava'],['#142210','Trees'],['#8a7558','Road'],['#3a2e1e','Rubble'],
+    ['#5c3212','Chest'],['#8c6c48','Stairs'],['#2a4a1a','Grass'],['#d0e0f0','Snow'],
+  ].map(([c,n])=>`<span class="legend-item"><span class="legend-dot" style="background:${c}"></span>${n}</span>`).join('');
+}
 
-  // Legend
-  const legendEl=document.getElementById('map-legend');
-  const legendItems=[
-    [0,'Wall'],[1,'Floor'],[2,'Door'],[9,'Chest'],[10,'Stairs'],
-    [11,'Trap'],[8,'Pillar'],[3,'Water'],[4,'Lava'],[5,'Trees'],[12,'Grass'],[14,'Snow'],
-  ];
-  legendEl.innerHTML=legendItems.map(([t,n])=>
-    `<span class="legend-item"><span class="legend-dot" style="background:${TILE_COLORS[t]}"></span>${n}</span>`
-  ).join('');
+function _mapBase(ctx, x, y, t, TS) {
+  const px = x*TS, py = y*TS;
+  const r = (i) => _ht(x, y, i);
+
+  if (t === T.WALL) {
+    ctx.fillStyle = '#1e1812'; ctx.fillRect(px, py, TS, TS);
+    for (let i = 0; i < 4; i++) {
+      const fx = px+r(i*6)*(TS-2)+1, fy = py+r(i*6+1)*(TS-2)+1;
+      const fw = 1+r(i*6+2)*4, fh = 1+r(i*6+3)*2;
+      ctx.fillStyle = r(i*6+4) > 0.62
+        ? `rgba(68,50,32,${0.35+r(i*6+5)*0.25})`
+        : `rgba(10,6,3,${0.38+r(i*6+5)*0.28})`;
+      ctx.fillRect(fx, fy, fw, fh);
+    }
+    return;
+  }
+  if (t === T.FLOOR || t === T.PILLAR || t === T.CHEST || t === T.STAIRS || t === T.TRAP) {
+    ctx.fillStyle = ((x+y)&1) ? '#6c4e2e' : '#7c5e3e'; ctx.fillRect(px, py, TS, TS);
+    ctx.strokeStyle = 'rgba(22,13,6,0.28)'; ctx.lineWidth = 0.5; ctx.strokeRect(px+.5, py+.5, TS-1, TS-1);
+    if (r(90) > 0.87) { ctx.fillStyle = 'rgba(0,0,0,0.06)'; ctx.fillRect(px, py, TS, TS); }
+    return;
+  }
+  if (t === T.DOOR) {
+    ctx.fillStyle = ((x+y)&1) ? '#6c4e2e' : '#7c5e3e'; ctx.fillRect(px, py, TS, TS);
+    const dw=TS*.55, dh=TS*.80, dx=px+(TS-dw)/2, dy=py+(TS-dh)/2;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(dx+2,dy+2,dw,dh);
+    ctx.fillStyle = '#5a2e10'; ctx.fillRect(dx,dy,dw,dh);
+    ctx.fillStyle = '#482208';
+    ctx.fillRect(dx+2,dy+2,dw-4,dh*.44); ctx.fillRect(dx+2,dy+dh*.52,dw-4,dh*.44);
+    ctx.fillStyle = '#c8973c'; ctx.beginPath(); ctx.arc(dx+dw*.76,dy+dh*.5,2.2,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#1a0804'; ctx.lineWidth = 0.8; ctx.strokeRect(dx,dy,dw,dh);
+    return;
+  }
+  if (t === T.WATER) {
+    const gw = ctx.createLinearGradient(px,py,px,py+TS);
+    gw.addColorStop(0,'#1e4a70'); gw.addColorStop(1,'#0c2840');
+    ctx.fillStyle = gw; ctx.fillRect(px,py,TS,TS);
+    ctx.strokeStyle = 'rgba(120,200,255,0.2)'; ctx.lineWidth = 1;
+    for (let wi = 0; wi < 3; wi++) {
+      const wy = py+(wi+0.65)*TS/3.1;
+      ctx.beginPath(); ctx.moveTo(px, wy+Math.sin((x+wi)*.85)*2);
+      ctx.bezierCurveTo(px+TS*.33,wy+Math.sin((x+wi)*.85+1.1)*2, px+TS*.66,wy+Math.sin((x+wi)*.85+2.2)*2, px+TS,wy+Math.sin((x+wi)*.85+3.3)*2);
+      ctx.stroke();
+    }
+    return;
+  }
+  if (t === T.LAVA) {
+    ctx.fillStyle = '#380902'; ctx.fillRect(px,py,TS,TS);
+    for (let ci = 0; ci < 3; ci++) {
+      const lx1=px+r(ci*7)*TS, ly1=py+r(ci*7+1)*TS, lx2=px+r(ci*7+2)*TS, ly2=py+r(ci*7+3)*TS;
+      const gl = ctx.createLinearGradient(lx1,ly1,lx2,ly2);
+      gl.addColorStop(0,'rgba(255,80,0,0)'); gl.addColorStop(.5,r(ci*7+4)>.5?'#ff5500':'#ff8800'); gl.addColorStop(1,'rgba(255,80,0,0)');
+      ctx.strokeStyle = gl; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(lx1,ly1); ctx.lineTo(lx2,ly2); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(160,40,0,0.09)'; ctx.fillRect(px,py,TS,TS);
+    return;
+  }
+  if (t === T.TREES) {
+    ctx.fillStyle = '#142210'; ctx.fillRect(px,py,TS,TS);
+    const numT = 1+(r(0)>.58?1:0);
+    for (let ti = 0; ti < numT; ti++) {
+      const tcx=px+5+r(ti*7+1)*(TS-10), tcy=py+5+r(ti*7+2)*(TS-10), trad=5+r(ti*7+3)*7;
+      const green = Math.floor(72+r(ti*7+4)*45);
+      ctx.fillStyle = `rgba(22,${green},15,0.93)`; ctx.beginPath(); ctx.arc(tcx,tcy,trad,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.arc(tcx+.8,tcy+1,trad*.52,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.beginPath(); ctx.arc(tcx-trad*.28,tcy-trad*.28,trad*.38,0,Math.PI*2); ctx.fill();
+    }
+    return;
+  }
+  if (t === T.ROAD) {
+    ctx.fillStyle = '#8a7558'; ctx.fillRect(px,py,TS,TS);
+    ctx.strokeStyle = 'rgba(55,42,25,0.32)'; ctx.lineWidth = 0.7;
+    for (let li = 1; li <= 2; li++) { ctx.beginPath(); ctx.moveTo(px,py+li*TS/3); ctx.lineTo(px+TS,py+li*TS/3); ctx.stroke(); }
+    return;
+  }
+  if (t === T.RUBBLE) {
+    ctx.fillStyle = '#3a2e1e'; ctx.fillRect(px,py,TS,TS);
+    for (let ri = 0; ri < 6; ri++) {
+      const rfx=px+r(ri*7)*TS, rfy=py+r(ri*7+1)*TS, rfw=2+r(ri*7+2)*5, rfh=1+r(ri*7+3)*3;
+      ctx.save(); ctx.translate(rfx+rfw/2,rfy+rfh/2); ctx.rotate(r(ri*7+4)*Math.PI);
+      ctx.fillStyle = ri%2===0 ? 'rgba(95,78,55,0.85)' : 'rgba(48,38,25,0.85)';
+      ctx.fillRect(-rfw/2,-rfh/2,rfw,rfh); ctx.restore();
+    }
+    return;
+  }
+  if (t === T.GRASS) {
+    const gv = r(40);
+    ctx.fillStyle = `rgb(${Math.floor(26+gv*16)},${Math.floor(68+gv*36)},${Math.floor(16+gv*12)})`; ctx.fillRect(px,py,TS,TS);
+    ctx.strokeStyle = `rgba(${Math.floor(38+gv*18)},${Math.floor(95+gv*28)},${Math.floor(22+gv*14)},0.42)`; ctx.lineWidth = 0.6;
+    for (let gi = 0; gi < 5; gi++) {
+      const gsx=px+r(gi*3+41)*TS, gsy=py+r(gi*3+42)*(TS*.62)+TS*.3;
+      ctx.beginPath(); ctx.moveTo(gsx,gsy+3); ctx.quadraticCurveTo(gsx+(r(gi*3+43)-.5)*5,gsy,gsx+(r(gi*3+43)-.5)*2,gsy-5); ctx.stroke();
+    }
+    return;
+  }
+  if (t === T.DIRT) {
+    const dv = r(50);
+    ctx.fillStyle = `rgb(${Math.floor(126+dv*26)},${Math.floor(96+dv*20)},${Math.floor(56+dv*16)})`; ctx.fillRect(px,py,TS,TS);
+    for (let pi = 0; pi < 3; pi++) {
+      ctx.fillStyle = `rgba(75,58,38,${.35+r(pi*4+51)*.25})`;
+      ctx.beginPath(); ctx.arc(px+r(pi*4+52)*TS, py+r(pi*4+53)*TS, .8+r(pi*4+54)*1.2,0,Math.PI*2); ctx.fill();
+    }
+    return;
+  }
+  if (t === T.SNOW) {
+    const sv = r(60);
+    ctx.fillStyle = `rgb(${Math.floor(205+sv*45)},${Math.floor(212+sv*38)},${Math.floor(222+sv*30)})`; ctx.fillRect(px,py,TS,TS);
+    if (sv > 0.83) { ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.beginPath(); ctx.arc(px+r(61)*TS,py+r(62)*TS,.8,0,Math.PI*2); ctx.fill(); }
+    return;
+  }
+  ctx.fillStyle = '#1e1812'; ctx.fillRect(px,py,TS,TS);
+}
+
+function _mapFeature(ctx, x, y, t, TS) {
+  const px=x*TS, py=y*TS, m=px+TS/2, n=py+TS/2;
+
+  if (t === T.PILLAR) {
+    const rad = TS*.35;
+    ctx.fillStyle = 'rgba(0,0,0,0.42)'; ctx.beginPath(); ctx.arc(m+2,n+2.5,rad,0,Math.PI*2); ctx.fill();
+    const gp = ctx.createRadialGradient(m-rad*.32,n-rad*.32,0,m,n,rad);
+    gp.addColorStop(0,'#d6ba8e'); gp.addColorStop(.45,'#a07c52'); gp.addColorStop(1,'#4c3018');
+    ctx.fillStyle = gp; ctx.beginPath(); ctx.arc(m,n,rad,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,162,105,0.38)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.arc(m,n,rad,0,Math.PI*2); ctx.stroke();
+    return;
+  }
+  if (t === T.CHEST) {
+    const cw=TS*.58, ch=TS*.44, cx=m-cw/2, cy=n-ch/2-1;
+    ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fillRect(cx+2,cy+2,cw,ch);
+    ctx.fillStyle = '#5c3212'; ctx.fillRect(cx,cy,cw,ch);
+    ctx.fillStyle = '#3e2008'; ctx.fillRect(cx,cy,cw,ch*.38);
+    ctx.fillStyle = '#c8973c'; ctx.fillRect(cx+2,cy+ch*.35,cw-4,2);
+    ctx.fillStyle = '#f0c040'; ctx.beginPath(); ctx.arc(m,cy+ch*.41,2.5,0,Math.PI*2); ctx.fill();
+    [[0,0],[cw-2,0],[0,ch-2],[cw-2,ch-2]].forEach(([ox,oy])=>{ ctx.fillStyle='#6a6a6a'; ctx.fillRect(cx+ox,cy+oy,2,2); });
+    ctx.strokeStyle = '#1a0804'; ctx.lineWidth = 0.8; ctx.strokeRect(cx,cy,cw,ch);
+    return;
+  }
+  if (t === T.STAIRS) {
+    const sw=TS*.68, sh=TS*.62, x0=m-sw/2, y0=n-sh/2, nS=5, stepH=sh/nS;
+    for (let si = 0; si < nS; si++) {
+      const shrink=si*(sw/nS)*.1, sx=x0+shrink, sw2=sw-shrink*2, sy=y0+si*stepH;
+      ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fillRect(sx,sy+stepH*.7,sw2,stepH*.3);
+      ctx.fillStyle = si%2===0 ? '#8c6c48' : '#9c7c58'; ctx.fillRect(sx,sy,sw2,stepH*.72);
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 0.4; ctx.strokeRect(sx,sy,sw2,stepH*.72);
+    }
+    ctx.fillStyle = '#f0c040'; ctx.font = `bold ${Math.floor(TS*.28)}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('▼',m,py+TS-2);
+    return;
+  }
+  if (t === T.TRAP) {
+    const s=TS*.52, tx=m-s/2, ty=n-s/2;
+    ctx.strokeStyle = 'rgba(165,45,45,0.42)'; ctx.lineWidth = 0.8; ctx.strokeRect(tx,ty,s,s);
+    ctx.beginPath();
+    ctx.moveTo(tx+s*.22,ty+s*.22); ctx.lineTo(tx+s*.78,ty+s*.78);
+    ctx.moveTo(tx+s*.78,ty+s*.22); ctx.lineTo(tx+s*.22,ty+s*.78);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(165,45,45,0.32)'; ctx.beginPath(); ctx.arc(m,n,2,0,Math.PI*2); ctx.fill();
+    return;
+  }
 }
 
 // ── Music ─────────────────────────────────────────────────────────────────────
 
 function renderMusic() {
   setContent(`
-    <div class="view-header"><h1>🎵 Music</h1><p class="view-sub">Procedural scores synthesised live in your browser — no audio files</p></div>
-    <div class="music-now" id="music-now"><span style="color:var(--muted)">Click a mood to start</span></div>
+    <div class="view-header">
+      <h1>🎵 Music</h1>
+      <p class="view-sub">Real orchestral instruments · Hall reverb · 8 cinematic moods — plays live in browser</p>
+    </div>
+    <div class="music-now" id="music-now">
+      <span style="color:var(--muted)">Click a mood to start — instruments load on first use, then cached</span>
+    </div>
     <div class="mood-grid" id="mood-grid"></div>
     <div class="music-vol-row">
       <label>Volume</label>
-      <input type="range" id="vol-slider" min="-40" max="0" value="${_mVol}" step="1">
-      <span id="vol-label" class="vol-label">${_mVol} dB</span>
-      <button class="btn btn-secondary btn-sm" onclick="musicStop()">⏹ Stop</button>
+      <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="0.72">
+      <span id="vol-label" class="vol-label">72%</span>
+      <button class="btn btn-secondary btn-sm" onclick="Music.stop()">⏹ Stop</button>
     </div>
   `);
 
-  const grid=document.getElementById('grid')||document.getElementById('mood-grid');
-  Object.entries(MOODS).forEach(([key,m])=>{
-    const card=document.createElement('div');
-    card.className='mood-card'+(key===_mActive?' active'+(m.purple?' purple':''):'');
-    card.id='mood-'+key;
-    card.innerHTML=`<span class="mood-bpm">${m.bpm} bpm</span><div class="mood-icon">${m.icon}</div><div class="mood-name">${m.name}</div><div class="mood-desc">${m.desc}</div>`;
-    card.addEventListener('click',async()=>{
-      if (_mActive===key&&Tone.getTransport().state==='started') { musicStop(); refreshMoodCards(); }
-      else { await musicPlay(key); refreshMoodCards(); updateMusicNow(); }
+  const grid = document.getElementById('mood-grid');
+  Object.entries(Music.MOODS).forEach(([key, m]) => {
+    const card = document.createElement('div');
+    card.className = 'mood-card';
+    card.dataset.mood = key;
+    if (Music.getActive() === key) card.classList.add('active');
+    card.innerHTML = `<span class="mood-bpm">${m.bpm} bpm</span><div class="mood-icon">${m.icon}</div><div class="mood-name">${m.name}</div><div class="mood-desc">${m.desc}</div>`;
+    card.addEventListener('click', async () => {
+      if (Music.getActive() === key && !Music.isLoading()) Music.stop();
+      else await Music.play(key);
     });
-    document.getElementById('mood-grid').appendChild(card);
+    grid.appendChild(card);
   });
 
-  document.getElementById('vol-slider').addEventListener('input',e=>{
-    _mVol=parseInt(e.target.value);
-    document.getElementById('vol-label').textContent=`${_mVol} dB`;
+  document.getElementById('vol-slider').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    document.getElementById('vol-label').textContent = Math.round(v * 100) + '%';
+    Music.setVolume(v);
   });
 
-  updateMusicNow();
-}
-
-function refreshMoodCards() {
-  document.querySelectorAll('.mood-card').forEach(c=>{
-    const k=c.id.replace('mood-','');
-    c.classList.remove('active','purple');
-    if (k===_mActive) { c.classList.add('active'); if(MOODS[k]?.purple) c.classList.add('purple'); }
-  });
-}
-
-function updateMusicNow() {
-  const el=document.getElementById('music-now');
-  if (!el) return;
-  const m=_mActive?MOODS[_mActive]:null;
-  el.innerHTML=m
-    ? `<span class="now-dot playing"></span><strong>${m.icon} ${m.name}</strong> — ${m.desc}`
-    : `<span style="color:var(--muted)">Click a mood to start</span>`;
+  Music.refreshUI();
 }
 
 // ── NPCs ──────────────────────────────────────────────────────────────────────
