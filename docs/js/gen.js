@@ -862,7 +862,90 @@ function generateQuest(opts={}) {
 const MULTI_MULTS=[{min:1,max:1,m:1},{min:2,max:2,m:1.5},{min:3,max:6,m:2},{min:7,max:10,m:2.5},{min:11,max:14,m:3},{min:15,max:Infinity,m:4}];
 function multiMult(n){return MULTI_MULTS.find(x=>n>=x.min&&n<=x.max)?.m||1;}
 
-function generateEncounter(partyLevel, partySize, difficulty='medium') {
+const _ENC_ENVIRONMENTS = [
+  { name:'Dungeon Corridor',       desc:'A low stone passage, torchlight failing at both ends. The ceiling is close. Sound carries.',
+    features:['Narrow corridor (10ft wide): Large+ creatures squeeze, ranged attacks have cover','Loose flagstones: DC 12 Perception to notice; trigger = Dex DC 13 or prone','Wall sconces: can be knocked down (improvised thrown weapon, 1d6+fire)','One rusted portcullis, open but can be dropped (lever in an alcove, action)'] },
+  { name:'Ruined Chamber',         desc:'A vaulted room with half the ceiling caved in. Rubble everywhere. Something was here before the ceiling fell.',
+    features:['Rubble field (20ft section): difficult terrain, half cover while crouching','Collapsed pillar: provides three-quarters cover; unstable (DC 14 Str to tip onto enemy, 2d10 bludgeoning)','Shaft of light from the collapse: 10ft circle, dim light only — advantage on Perception checks within it','Old brazier: still hot; knocked over = 10ft line of difficult terrain, 1d6 fire to enter'] },
+  { name:'Forest Clearing',        desc:'A break in the canopy. The trees form a ring around a space that looks deliberately maintained. It isn\'t.',
+    features:['Tree line: creatures inside the tree line are heavily obscured until they move into the clearing','Loose undergrowth ring: difficult terrain 10ft around clearing edge; DC 13 Stealth to move through silently','Low branch: DC 12 Athletics to grab as bonus action; grants high ground (+1 to attacks, advantage on saves vs prone)','Mossy log: blocks movement, provides half cover on prone creatures; DC 10 Athletics to vault'] },
+  { name:'Tavern Common Room',     desc:'Tables overturned, broken glass, the barkeep behind the bar praying very quietly. Combat spills out of nowhere.',
+    features:['Furniture: four tables as half cover, easily shoved (DC 11 Str, action, knocks prone on hit)','Bar top: high ground; DC 13 Athletics to vault or climb; barkeep will throw bottles (improvised, 1d4+1) if provoked','Fireplace: 5ft cube, 1d10 fire to enter/start turn; cast iron poker available (1d6 bludgeoning)','Chandelier: rope near the bar; cut = drops on 10ft square (DC 14 Dex or 2d6 + restrained until freed)'] },
+  { name:'Mountain Pass',          desc:'A ledge with a sheer drop on one side and a cliff face on the other. No room to maneuver. Whoever has the high ground wins.',
+    features:['Ledge edge: forced movement toward the edge (DC 13 Str) = over the side; 30ft drop (3d6 bludgeoning)','High ground section: +1 to attack rolls from the raised section (10ft elevation difference)','Loose scree: DC 13 Perception to identify; first creature through triggers Dex DC 13 or slide 10ft toward the edge','Cliff alcove: room for one medium creature, three-quarters cover, must Dash to reach it'] },
+  { name:'Underground Lake Shore', desc:'Dark water to one side, slick stone to the other. Things live in the water. The echo here is disorienting.',
+    features:['Water\'s edge: adjacent to water; knocked prone = into the water (swim DC 12 per round or sink 5ft)','Slick stone: full area difficult terrain; running = DC 12 Acrobatics or fall prone','Stalactites overhead: Dex DC 13 to hit a specific one with a ranged attack; drops on 10ft circle below (2d8+2 piercing)','Echo chamber: disadvantage on Perception checks based on hearing; anything louder than speech alerts the whole cave'] },
+  { name:'Burning Building',       desc:'The structure is already on fire. The reason matters less than what\'s in here that shouldn\'t burn.',
+    features:['Smoke (upper half of each room): heavily obscured above 5ft; DC 12 Con save per minute or poisoned','Active fire squares: 2d6 fire to enter or start turn; spreads 1 square per round on a d6 roll of 5-6','Weakened floor: DC 13 Perception to identify; weight of two or more medium creatures = falls through (1d6 + fire)','Burning debris: falling from the ceiling each round (DC 13 Dex or 1d10 fire, 20% chance per room, start of round)'] },
+  { name:'Ship Deck',              desc:'Moving deck, salt spray, the mast above. Everything is tied down, bolted, or swinging. Not everything belongs to you.',
+    features:['Moving deck: at the start of each round, DM calls a sway direction (DC 12 Dex or slide 5ft that direction)','Rigging: DC 13 Athletics to climb; grants height advantage (+1 attacks) and cover from below; rope can be cut','Cannons (if warship): can be aimed and fired with two actions; 4d10 bludgeoning, 30ft range, deafens 10ft on use','Water below: man overboard = DC 14 Str (Athletics) per round to stay afloat in ocean swells'] },
+  { name:'Sewer Tunnel',           desc:'Knee-deep foul water, low arched ceilings, sounds that don\'t track to sources. Visibility is essentially zero.',
+    features:['Waist-high water: all movement difficult terrain; small creatures fully submerged','Zero ambient light (unless carried): all creatures effectively blind beyond their own light radius','Slime walls: climbers must succeed DC 15 Athletics or fall (the ceiling is 8ft — a drop is 1d4+1)','Current grate: one section has a strong current (DC 14 Str or swept 20ft downstream, DC 12 to grab a pipe)'] },
+  { name:'Ancient Temple',         desc:'Columns, a raised altar, faded murals of something that used to matter. Something in this room is still active.',
+    features:['Altar: high ground, three-quarters cover while prone; touching the altar triggers a DC 13 Wis save or frightened 1 round','Column grid: full cover behind a column; 12 columns total, 10ft apart','Divine trap (one tile): Arcana DC 14 to identify; triggers 3d6 radiant in 10ft burst (DC 14 Dex half)','Mural: Investigation DC 15 reveals the weakness or history of one enemy type present in the encounter'] },
+  { name:'City Rooftops',          desc:'Narrow ledges, chimneys, wash lines between buildings. Three stories up. One bad roll from a bad time.',
+    features:['Gap between roofs: DC 12 Athletics to jump; failure = grab ledge (DC 13 Str) or fall 3d6','Laundry lines: provide half cover if stood adjacent; can be grabbed (free action) for a swing (DC 13 Acrobatics = move 15ft ignoring difficult terrain)','Chimney: blocks movement, three-quarters cover; venting smoke (DC 11 Con per round in smoke or poisoned)','Wet tiles: most roof sections difficult terrain after the first; first failed Acrobatics check this combat = prone'] },
+  { name:'Frozen Tundra',          desc:'Flat open ground, visibility in every direction, wind that turns every sound sideways. Nowhere to hide. Nowhere to run.',
+    features:['Open field: no cover within 60ft; ranged combatants have clear lanes in every direction','Ice patches (scattered): DC 13 Perception to identify; entering = DC 12 Acrobatics or fall prone','Wind: ranged attack rolls beyond 30ft made with disadvantage; Perception based on hearing made with disadvantage','Snowdrift: two sections of difficult terrain; a prone creature in a snowdrift is heavily obscured'] },
+];
+
+const _ENC_TACTICS = {
+  // by type — opening, sustained, morale
+  humanoid:   { open:'Form up on ranged party members first; melee engages immediately; leaders stay back first round calling targets', sustain:'Focus fire on downed party members if possible; use reactions for opportunity attacks; don\'t break formation voluntarily', morale:'Flee or surrender when leader drops or when reduced to half numbers; thugs and bandits break early, soldiers hold longer' },
+  undead:     { open:'Mindless undead move directly toward the nearest living creature; intelligent undead open with their most powerful ability', sustain:'Undead don\'t retreat; mindless undead keep advancing regardless of losses; intelligent undead use cover and prioritize casters', morale:'Mindless: none — fight to destruction. Intelligent undead: may withdraw if losing, but won\'t surrender' },
+  beast:      { open:'Fastest beast charges; the rest use pack tactics — one engages, others circle for flanking', sustain:'Knock prey prone early (trip attacks, pounce); bite then hold; drag isolated targets away from the group', morale:'Natural beasts flee at half health unless protecting young or nest; magically influenced beasts fight to death' },
+  dragon:     { open:'Breath weapon first on the largest group cluster; then land or stay aloft depending on type', sustain:'Prioritize the most dangerous target; use lair actions on initiative 20; reposition every 2 rounds using fly speed', morale:'Dragons rarely flee but will if reduced to 25% HP and lacking legendary resistance; ancient dragons almost never flee' },
+  fiend:      { open:'Lead with most powerful debuff ability; try to charm, frighten, or stun on round 1', sustain:'Target isolated characters; use teleportation to stay at the range they prefer; force concentration saves', morale:'Demons fight to the death but may be banished; devils will withdraw to preserve themselves for a longer game' },
+  aberration: { open:'Mind-affecting ability first; try to incapacitate the biggest threat before it acts', sustain:'Keep the most confused or stunned target isolated; never engage directly if it can attack from range or through an ally', morale:'Aberrations rarely retreat but will shift focus entirely if their psychic target becomes ineffective' },
+  giant:      { open:'Rock throw to open if range allows; then close to melee and focus on the heaviest armor', sustain:'Multiattack against the same target each round to down them fast; ignore opportunity attacks willingly', morale:'Giants hold until half health then reevaluate; hill giants panic early; stone and frost giants hold longer' },
+  construct:  { open:'Move to block exits if possible; constructs prioritize the creature that last damaged them', sustain:'Constructs don\'t have morale — they follow programming; watch for the controlling mechanism', morale:'None — destroy or disable the controller' },
+  elemental:  { open:'Use element form movement immediately to reposition to an advantageous position', sustain:'Focus the creature most resistant to their element (DM logic); use environment-specific abilities', morale:'Elementals summoned by magic fight until dismissed or destroyed; native elementals may retreat to their plane' },
+  monstrosity:{ open:'Each monstrosity has its signature ability — use it on round 1 before the party can react to it', sustain:'Monstrosities often focus on the creature that hurt them most recently; use special senses to track invisible creatures', morale:'Varies widely; territorial monstrosities fight harder near their lair; wanderers may break off at half health' },
+  fey:        { open:'Illusory or charm abilities first to split or confuse the party before any damage is taken', sustain:'Fey avoid taking damage if possible; will retreat, reappear, and strike from surprise repeatedly', morale:'Fey who are losing will try to bargain or flee rather than die; they consider death a very uncouth outcome' },
+  ooze:       { open:'Move toward the largest cluster; pseudopod attacks prefer unarmored targets', sustain:'Oozes split if area effects hit them (if applicable); they can\'t be communicated with and don\'t react to morale', morale:'None — mindless creatures, fight until destroyed' },
+  plant:      { open:'Entangle, grapple, or restrain immediately to hold targets in place for follow-up attacks', sustain:'Prioritize mobile characters first to reduce the party\'s ability to reposition', morale:'Mindless plants fight to destruction; intelligent plants may negotiate or retreat if significantly damaged' },
+  celestial:  { open:'Lead with the ability that removes the most immediate threat; divine wards or debuffs before damage', sustain:'Celestials adapt tactically and will protect weaker allies; they prioritize stopping the most evil creature present', morale:'Celestials may withdraw to regroup but rarely flee permanently; will sacrifice themselves for a ward or innocent' },
+};
+
+const _ENC_SKILL_OPPS = [
+  { skill:'Athletics DC 12',    effect:'Topple a piece of large furniture onto an enemy (2d6 bludgeoning, knocked prone)' },
+  { skill:'Arcana DC 14',       effect:'Identify one enemy\'s damage vulnerability or immunity before the party commits to a strategy' },
+  { skill:'Persuasion DC 16',   effect:'Convince a non-fanatic enemy to stand down (humanoids, intelligent monsters); DM sets stakes' },
+  { skill:'Intimidation DC 14', effect:'Cause hesitation in weaker enemies — they use their action to dodge this round instead of attacking' },
+  { skill:'Perception DC 13',   effect:'Spot an environmental hazard before a party member triggers it (fall, collapse, fire spread)' },
+  { skill:'Stealth DC 14',      effect:'Slip out of combat undetected — remove one character from enemy targeting for one round' },
+  { skill:'Nature DC 12',       effect:'Recall the correct behavior against one beast or plant creature type — exploit their morale or instincts' },
+  { skill:'Religion DC 13',     effect:'Recall a specific undead or fiend weakness not listed in the stat block; DM adjudicates effect' },
+  { skill:'Investigation DC 15',effect:'Find a hidden exit, a missed weapon, or a mechanism that affects the encounter environment' },
+  { skill:'Medicine DC 12',     effect:'Identify that a downed ally is stable vs. dying — save an action that would otherwise be spent checking' },
+];
+
+const _ENC_ESCALATIONS = [
+  'Reinforcements arrive at the end of round 3 — one additional creature of CR equal to the party level minus 2',
+  'A second faction enters from the opposite direction with their own agenda; may fight the original enemies, the party, or both',
+  'An environmental hazard activates — the room begins filling with gas, water, or fire at the start of round 4',
+  'The apparent leader was a decoy; the real threat was watching from a hidden vantage and now enters the fight',
+  'One enemy produces a hostage or a MacGuffin item mid-fight and offers terms',
+  'A trap activates that benefits neither side — everyone on the battlefield must deal with it simultaneously',
+  'A creature from outside the encounter is drawn in by the noise; it\'s hostile to everything in the room',
+  'Structural collapse begins — the ceiling, floor, or walls become a secondary threat with initiative of their own',
+];
+
+const _ENC_LOOT = [
+  // by party level range
+  { lvl:[1,4],  tables:['Small coin purse (2d6×5 cp, 1d6×5 sp)','One common magic item (potion of healing, +1 ammunition)','Personal effects with a hook attached','A map fragment that leads somewhere small'] },
+  { lvl:[5,8],  tables:['Coin mix (2d6×10 gp + gems worth 2d6×5 gp)','One uncommon magic item or a spell scroll (level 2-4)','Encoded documents — Cobalt Soul or Myriad would pay for these','A faction signet ring that opens a door it shouldn\'t'] },
+  { lvl:[9,12], tables:['Coin hoard (3d6×50 gp + one gem worth 1d6×100 gp)','Rare magic item or spell scroll (level 5-6)','A research journal with dangerous conclusions','Faction intelligence — someone, somewhere, will pay a lot for this'] },
+  { lvl:[13,16],tables:['Significant treasure (2d6×100 gp + art objects worth 3d6×100 gp)','Very rare magic item or a spell scroll (level 7-8)','Something that shouldn\'t exist — DM decides what it is and why it matters','An Aeoran artifact, incomplete and functional'] },
+  { lvl:[17,20],tables:['Major treasure (5d6×250 gp + gems worth 1d4×1000 gp each)','Legendary magic item or 9th-level spell scroll','The reason the most powerful enemy was carrying what they were carrying','Something that, if taken, creates the next major plot thread'] },
+];
+
+function _encLoot(level) {
+  const tier = _ENC_LOOT.find(t=>level>=t.lvl[0]&&level<=t.lvl[1]) || _ENC_LOOT[1];
+  return tier.tables.slice(0,3).map(t=>pick([t]));
+}
+
+function generateEncounter(partyLevel, partySize, difficulty='medium', envOverride=null) {
   const lvl=clamp(partyLevel,1,20);
   const thresh=DIFFICULTY_THRESHOLDS[lvl]||DIFFICULTY_THRESHOLDS[5];
   const budget=thresh[difficulty.toLowerCase()]*(partySize||4);
@@ -892,27 +975,70 @@ function generateEncounter(partyLevel, partySize, difficulty='medium') {
 
   // De-duplicate names
   const nameCounts={};
-  chosen.forEach(m=>{
-    nameCounts[m.name]=(nameCounts[m.name]||0)+1;
-  });
+  chosen.forEach(m=>{ nameCounts[m.name]=(nameCounts[m.name]||0)+1; });
   const seen={};
   chosen.forEach(m=>{
-    if (nameCounts[m.name]>1) {
+    if(nameCounts[m.name]>1){
       seen[m.name]=(seen[m.name]||0)+1;
       m.displayName=`${m.name} ${String.fromCharCode(64+seen[m.name])}`;
-    } else {
-      m.displayName=m.name;
+    } else { m.displayName=m.name; }
+  });
+
+  // Environment
+  const env = envOverride
+    ? (_ENC_ENVIRONMENTS.find(e=>e.name===envOverride)||pick(_ENC_ENVIRONMENTS))
+    : pick(_ENC_ENVIRONMENTS);
+
+  // Dominant monster type for tactics
+  const typeCounts={};
+  chosen.forEach(m=>{ typeCounts[m.type]=(typeCounts[m.type]||0)+1; });
+  const dominantType = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||'humanoid';
+  const baseType = Object.keys(_ENC_TACTICS).find(t=>dominantType.includes(t))||'humanoid';
+  const tactics = _ENC_TACTICS[baseType];
+
+  // Unique monster entries for stat display
+  const uniqueMonsters = [];
+  const seenNames = new Set();
+  chosen.forEach(m=>{
+    if(!seenNames.has(m.name)){
+      seenNames.add(m.name);
+      uniqueMonsters.push(m);
     }
   });
+
+  // Counts for summary
+  const monsterSummary = Object.entries(nameCounts).map(([name,count])=>count>1?`${count}× ${name}`:name).join(', ');
+
+  // Skill opportunities — pick 3
+  const skillOpps = [..._ENC_SKILL_OPPS].sort(()=>Math.random()-.5).slice(0,3);
+
+  // Escalation
+  const escalation = pick(_ENC_ESCALATIONS);
+
+  // Loot
+  const loot = _encLoot(lvl);
+
+  // DM note
+  const dmNote = `Open with the ${baseType} tactic: "${tactics.open.slice(0,80)}…" — then let the terrain features do the work. The ${env.features[0].split(':')[0]} is the most likely to matter. If the party is dominating, use the escalation option.`;
 
   return {
     id:uuid(),
     monsters:chosen,
+    uniqueMonsters,
+    monsterSummary,
     totalXP:Math.round(usedXP*multiMult(chosen.length)),
     rawXP:usedXP,
     budget,
     difficulty,
     partyLevel:lvl,
     partySize:partySize||4,
+    // enrichment
+    environment:env,
+    tactics,
+    dominantType:baseType,
+    skillOpps,
+    escalation,
+    loot,
+    dmNote,
   };
 }

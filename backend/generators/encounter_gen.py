@@ -55,11 +55,22 @@ def generate(
         next((m["cr"] for m in MONSTERS if m["name"] == c["name"]), 0), 0
     ) for c in combatants)
 
+    # Dominant monster type — used client-side to pick tactics brief
+    type_counts: dict[str, int] = {}
+    for c in combatants:
+        m = next((x for x in MONSTERS if x["name"] == c["name"]), None)
+        if m:
+            type_counts[m["type"]] = type_counts.get(m["type"], 0) + 1
+    dominant_type = max(type_counts, key=lambda t: type_counts[t]) if type_counts else "humanoid"
+
     return {
-        "campaign_id": campaign_id,
-        "name":        f"{difficulty.title()} Encounter",
-        "difficulty":  difficulty,
-        "status":      "planned",
-        "notes":       f"Est. {total_xp} XP for {party_size} level-{party_level} characters",
-        "combatants":  combatants,
+        "campaign_id":   campaign_id,
+        "name":          f"{difficulty.title()} Encounter",
+        "difficulty":    difficulty,
+        "status":        "planned",
+        "notes":         f"Est. {total_xp} XP for {party_size} level-{party_level} characters",
+        "combatants":    combatants,
+        "dominant_type": dominant_type,
+        "party_level":   party_level,
+        "party_size":    party_size,
     }
