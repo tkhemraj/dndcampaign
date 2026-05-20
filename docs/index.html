@@ -6,6 +6,9 @@
   <title>D&D Campaign Generator — Wildemount DM Toolkit</title>
   <meta name="description" content="Full Dungeon Master toolkit for Wildemount and Exandria. Procedural maps, live synthesised music, NPC generator, encounter builder, initiative tracker, and deep Wildemount lore — all local, no server.">
   <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -27,7 +30,7 @@
     }
 
     html { scroll-behavior: smooth; }
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.5; height: 100vh; overflow: hidden; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; height: 100vh; overflow: hidden; }
 
     /* ── Layout ── */
     #app { display: flex; height: 100vh; overflow: hidden; }
@@ -556,6 +559,126 @@
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       ATMOSPHERE — per-view art, header banners, sidebar texture
+       ═══════════════════════════════════════════════════════════════ */
+
+    /* Fonts */
+    .sidebar-brand { font-family: 'Cinzel Decorative', serif !important; font-size: 15px; text-shadow: 0 0 28px rgba(200,151,60,0.30), 0 1px 2px rgba(0,0,0,0.6); }
+    .view-header h1 { font-family: 'Cinzel', serif; color: var(--accent); }
+
+    /* Sidebar texture */
+    #sidebar {
+      background-image:
+        linear-gradient(180deg, rgba(200,151,60,0.06) 0%, transparent 22%, rgba(0,0,0,0.1) 100%),
+        repeating-linear-gradient(90deg, transparent 0, transparent 2px, rgba(255,255,255,0.007) 2px, rgba(255,255,255,0.007) 3px);
+    }
+
+    /* Main overflow fix for view-header bleed */
+    #main { overflow-x: hidden; }
+
+    /* View header — bleed to content edges, watermark slot */
+    .view-header {
+      margin: -24px -24px 24px;
+      padding: 20px 24px 17px;
+      position: relative;
+      overflow: hidden;
+      animation: viewIn 0.22s ease;
+    }
+    .view-header::after {
+      content: '';
+      position: absolute; right: 20px; top: -14px;
+      font-size: 96px; line-height: 1;
+      opacity: 0.055;
+      pointer-events: none; user-select: none;
+    }
+
+    @keyframes viewIn {
+      from { opacity: 0.45; transform: translateY(6px); }
+      to   { opacity: 1;    transform: translateY(0);   }
+    }
+
+    /* Per-view atmospheric backgrounds */
+    #content[data-view="dashboard"] {
+      background-image:
+        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(200,151,60,0.14) 0%, transparent 55%),
+        repeating-linear-gradient(45deg,  transparent 0, transparent 28px, rgba(200,151,60,0.02) 28px, rgba(200,151,60,0.02) 29px),
+        repeating-linear-gradient(-45deg, transparent 0, transparent 28px, rgba(200,151,60,0.02) 28px, rgba(200,151,60,0.02) 29px);
+    }
+    #content[data-view="maps"] {
+      background-image:
+        radial-gradient(ellipse 60% 50% at 88% 14%, rgba(70,120,170,0.11) 0%, transparent 55%),
+        repeating-linear-gradient(0deg,  transparent 0, transparent 39px, rgba(80,130,190,0.06) 39px, rgba(80,130,190,0.06) 40px),
+        repeating-linear-gradient(90deg, transparent 0, transparent 39px, rgba(80,130,190,0.06) 39px, rgba(80,130,190,0.06) 40px);
+    }
+    #content[data-view="npcs"] {
+      background-image:
+        radial-gradient(ellipse 35% 90% at -5% 50%, rgba(60,100,160,0.12) 0%, transparent 55%),
+        radial-gradient(ellipse 20% 30% at 106% 85%, rgba(100,50,150,0.07) 0%, transparent 50%),
+        repeating-linear-gradient(0deg, transparent 0, transparent 14px, rgba(255,255,255,0.012) 14px, rgba(255,255,255,0.012) 15px);
+    }
+    #content[data-view="quests"] {
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(180,140,55,0.13) 0%, transparent 52%),
+        repeating-linear-gradient(0deg, transparent 0, transparent 27px, rgba(180,140,55,0.03) 27px, rgba(180,140,55,0.03) 28px);
+    }
+    #content[data-view="encounters"] {
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% 112%, rgba(200,35,35,0.24) 0%, transparent 55%),
+        radial-gradient(ellipse 30% 25% at 4% 4%, rgba(100,20,20,0.10) 0%, transparent 50%),
+        repeating-linear-gradient(0deg,  transparent 0, transparent 18px, rgba(200,50,30,0.022) 18px, rgba(200,50,30,0.022) 19px),
+        repeating-linear-gradient(90deg, transparent 0, transparent 18px, rgba(200,50,30,0.022) 18px, rgba(200,50,30,0.022) 19px);
+    }
+    #content[data-view="lore"] {
+      background-image:
+        radial-gradient(ellipse 55% 90% at 109% 50%, rgba(160,95,35,0.14) 0%, transparent 55%),
+        radial-gradient(ellipse 35% 40% at -8% 4%, rgba(120,70,20,0.09) 0%, transparent 50%),
+        repeating-linear-gradient(45deg, transparent 0, transparent 19px, rgba(160,100,40,0.025) 19px, rgba(160,100,40,0.025) 20px);
+    }
+    #content[data-view="music"] {
+      background-image:
+        radial-gradient(ellipse 70% 65% at 50% 35%, rgba(139,76,158,0.22) 0%, rgba(70,40,130,0.10) 45%, transparent 65%),
+        radial-gradient(ellipse 35% 30% at 12% 90%, rgba(60,80,200,0.10) 0%, transparent 55%),
+        radial-gradient(ellipse 25% 20% at 90% 8%,  rgba(180,60,220,0.09) 0%, transparent 50%);
+    }
+    #content[data-view="combat"] {
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% 112%, rgba(200,35,35,0.24) 0%, transparent 55%),
+        radial-gradient(ellipse 30% 25% at 4% 4%, rgba(100,20,20,0.10) 0%, transparent 50%);
+    }
+    #content[data-view="spells"] {
+      background-image:
+        radial-gradient(ellipse 60% 60% at 50% 30%, rgba(100,60,200,0.15) 0%, rgba(60,40,130,0.08) 50%, transparent 65%);
+    }
+    #content[data-view="rules"] {
+      background-image:
+        radial-gradient(ellipse 80% 45% at 50% -10%, rgba(180,140,55,0.10) 0%, transparent 50%);
+    }
+
+    /* Per-view header banner accents */
+    #content[data-view="dashboard"]  .view-header { border-top: 3px solid var(--accent);  background: linear-gradient(90deg, rgba(200,151,60,0.10) 0%, transparent 65%); }
+    #content[data-view="maps"]       .view-header { border-top: 3px solid #4a88c0;         background: linear-gradient(90deg, rgba(74,136,192,0.10) 0%, transparent 65%); }
+    #content[data-view="npcs"]       .view-header { border-top: 3px solid #5a7ab8;         background: linear-gradient(90deg, rgba(90,122,184,0.09) 0%, transparent 65%); }
+    #content[data-view="quests"]     .view-header { border-top: 3px solid #c8a03c;         background: linear-gradient(90deg, rgba(180,140,55,0.10) 0%, transparent 65%); }
+    #content[data-view="encounters"] .view-header { border-top: 3px solid var(--crit);     background: linear-gradient(90deg, rgba(200,40,40,0.12) 0%, transparent 65%); }
+    #content[data-view="combat"]     .view-header { border-top: 3px solid var(--crit);     background: linear-gradient(90deg, rgba(200,40,40,0.12) 0%, transparent 65%); }
+    #content[data-view="lore"]       .view-header { border-top: 3px solid #c09040;         background: linear-gradient(90deg, rgba(160,100,40,0.11) 0%, transparent 65%); }
+    #content[data-view="music"]      .view-header { border-top: 3px solid var(--purple);   background: linear-gradient(90deg, rgba(139,76,158,0.14) 0%, transparent 65%); }
+    #content[data-view="spells"]     .view-header { border-top: 3px solid #7060c8;         background: linear-gradient(90deg, rgba(100,60,200,0.12) 0%, transparent 65%); }
+    #content[data-view="rules"]      .view-header { border-top: 3px solid #c8a03c;         background: linear-gradient(90deg, rgba(180,140,55,0.08) 0%, transparent 65%); }
+
+    /* Per-view watermark icons */
+    #content[data-view="dashboard"]  .view-header::after { content: '🏰'; }
+    #content[data-view="maps"]       .view-header::after { content: '🗺'; }
+    #content[data-view="npcs"]       .view-header::after { content: '👥'; }
+    #content[data-view="quests"]     .view-header::after { content: '📜'; }
+    #content[data-view="encounters"] .view-header::after { content: '⚔'; }
+    #content[data-view="combat"]     .view-header::after { content: '🩸'; }
+    #content[data-view="lore"]       .view-header::after { content: '📖'; }
+    #content[data-view="music"]      .view-header::after { content: '🎵'; }
+    #content[data-view="spells"]     .view-header::after { content: '✨'; }
+    #content[data-view="rules"]      .view-header::after { content: '📋'; }
   </style>
 </head>
 <body>

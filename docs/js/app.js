@@ -56,6 +56,7 @@ let _currentView='';
 
 function navigate(view, push=true) {
   _currentView=view;
+  document.getElementById('content').dataset.view = view;
   if (push) history.pushState({view},'',' ');
   document.querySelectorAll('.nav-item').forEach(el=>{
     el.classList.toggle('active', el.dataset.view===view);
