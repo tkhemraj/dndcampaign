@@ -187,6 +187,7 @@ const VIEWS = {
 let _activeView = 'dashboard';
 function navigate(view) {
   _activeView = view;
+  document.getElementById('content').dataset.view = view;
   document.querySelectorAll('#nav-links li').forEach(li => {
     li.classList.toggle('active', li.dataset.view === view);
   });
