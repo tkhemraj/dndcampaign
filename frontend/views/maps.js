@@ -162,6 +162,7 @@ function renderCanvas(mapData) {
     <div style="margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <strong style="font-family:'Cinzel',serif;color:var(--accent)">${mapData.name || 'Map'}</strong>
       <span style="color:var(--muted);font-size:12px">${data.map_type} / ${(data.subtype||'').replace(/_/g,' ')} · ${W}×${H}</span>
+      <button class="btn btn-secondary btn-sm" id="btn-share-map">👥 Share</button>
       <button class="btn btn-secondary btn-sm" id="btn-export-map" style="margin-left:auto">⬇ Export PNG</button>
     </div>
     <div id="map-container"><canvas id="map-canvas"></canvas></div>
@@ -217,6 +218,20 @@ function renderCanvas(mapData) {
     a.download = `${(mapData.name||'map').replace(/\s+/g,'-')}.png`;
     a.href = canvas.toDataURL('image/png');
     a.click();
+  });
+
+  document.getElementById('btn-share-map').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-share-map');
+    btn.disabled = true;
+    try {
+      await api('/api/live/broadcast', 'POST', { map: { name: mapData.name, data } });
+      toast('Map shared with players', 'success');
+      btn.textContent = '✓ Shared';
+      setTimeout(() => { btn.textContent = '👥 Share'; btn.disabled = false; }, 2500);
+    } catch(e) {
+      btn.disabled = false;
+      toast('Share failed', 'error');
+    }
   });
 
   canvas.addEventListener('mousemove', e => {

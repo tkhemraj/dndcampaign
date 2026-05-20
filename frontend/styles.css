@@ -118,6 +118,15 @@ body {
 #nav-links li:hover  { background: var(--surface2); color: var(--text); border-left-color: var(--border-hi); }
 #nav-links li.active { background: var(--surface2); color: var(--accent); font-weight: 600; border-left-color: var(--accent); }
 
+#player-link {
+  display: block; padding: 7px 10px; border-radius: var(--radius-sm);
+  font-size: 11px; color: var(--muted2); text-decoration: none;
+  border: 1px dashed var(--border); text-align: center;
+  transition: color var(--transition), border-color var(--transition);
+  margin-bottom: 4px;
+}
+#player-link:hover { color: var(--accent); border-color: var(--accent-dim); }
+
 #music-mini {
   display: flex; align-items: center; gap: 8px; padding: 8px;
   background: var(--surface2); border-radius: var(--radius); border: 1px solid var(--border);

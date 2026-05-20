@@ -117,6 +117,7 @@ function _enrichEncounter(enc, envName) {
 // ── State ─────────────────────────────────────────────────────────────────────
 let _activeEncounterId = null;
 let _currentTurnIdx    = 0;
+let _liveBroadcast     = false;
 
 // ── Main view ─────────────────────────────────────────────────────────────────
 const _ENV_NAMES = ['(Random)',..._ENC_ENVIRONMENTS.map(e=>e.name)];
@@ -350,6 +351,7 @@ async function refreshTracker() {
         <button class="btn btn-secondary btn-sm" id="btn-roll-init">🎲 Roll Initiative</button>
         <button class="btn btn-secondary btn-sm" id="btn-next-turn">▶ Next Turn</button>
         <button class="btn btn-secondary btn-sm" id="btn-add-combatant">+ Add</button>
+        <button class="btn btn-sm ${_liveBroadcast?'btn-primary':'btn-secondary'}" id="btn-live-toggle" title="Broadcast to player view">📡${_liveBroadcast?' Live':''}</button>
         <select id="enc-status-sel" class="btn btn-secondary btn-sm">
           ${['planned','active','completed'].map(s=>`<option ${enc.status===s?'selected':''}>${s}</option>`).join('')}
         </select>
@@ -394,6 +396,35 @@ async function refreshTracker() {
       await refreshTracker();
     }, 'Add');
   });
+
+  document.getElementById('btn-live-toggle').addEventListener('click', async () => {
+    _liveBroadcast = !_liveBroadcast;
+    if (_liveBroadcast) {
+      toast('Broadcasting to players — open /player on their device', 'success');
+    } else {
+      await api('/api/live/broadcast', 'POST', { encounter: null });
+      toast('Live combat stopped', 'info');
+    }
+    await refreshTracker();
+  });
+
+  // Auto-broadcast if live
+  if (_liveBroadcast && combatants.length) {
+    api('/api/live/broadcast', 'POST', {
+      encounter: {
+        name: enc.name,
+        round: Math.floor(_currentTurnIdx / Math.max(1, combatants.length)) + 1,
+        current_idx: _currentTurnIdx % Math.max(1, combatants.length),
+        combatants: combatants.map(c => ({
+          name:       c.name,
+          hp:         c.hp,
+          max_hp:     c.max_hp,
+          is_player:  c.combatant_type === 'player',
+          conditions: JSON.parse(c.conditions || '[]'),
+        })),
+      }
+    }).catch(() => {});
+  }
 }
 
 function combatantRow(c, isActive) {

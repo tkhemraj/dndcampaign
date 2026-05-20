@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import backend.db as db
-from backend.routers import campaigns, npcs, quests, encounters, maps, lore
+from backend.routers import campaigns, npcs, quests, encounters, maps, lore, live
 
 FRONTEND = Path(__file__).parent.parent / "frontend"
 
@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="D&D Campaign Generator", lifespan=lifespan)
 
-for router in (campaigns.router, npcs.router, quests.router, encounters.router, maps.router, lore.router):
+for router in (campaigns.router, npcs.router, quests.router, encounters.router, maps.router, lore.router, live.router):
     app.include_router(router)
 
 app.mount("/static", StaticFiles(directory=str(FRONTEND)), name="static")
@@ -24,3 +24,7 @@ app.mount("/static", StaticFiles(directory=str(FRONTEND)), name="static")
 @app.get("/", include_in_schema=False)
 async def index():
     return FileResponse(str(FRONTEND / "index.html"))
+
+@app.get("/player", include_in_schema=False)
+async def player():
+    return FileResponse(str(FRONTEND / "player.html"))
