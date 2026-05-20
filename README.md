@@ -1,124 +1,10 @@
 # D&D Campaign Generator
 
-**A full-featured Dungeon Master toolkit — procedural maps, live music, NPCs, quests, encounters, and deep Wildemount / Exandria lore support.**
+**A full-featured local DM toolkit — procedural maps, live music, NPC and encounter generators, initiative tracker, quest board, and deep Wildemount lore support.**
 
-All content is generated locally. No external APIs, no subscriptions, no proprietary data — just a Python backend, a browser, and your imagination.
+No external APIs. No subscriptions. No proprietary data. Runs entirely on a Python backend + your browser.
 
-> *Architecture, generators, and system integration were enhanced and tied together with the assistance of an AI development tool.*
-
----
-
-## Screenshots
-
-### Dashboard — Campaign at a Glance
-
-The dashboard surfaces active quests, recent NPCs, and campaign stats the moment you open a campaign. Create as many campaigns as you like; they live independently in SQLite.
-
-### Map Generator
-
-![Map types: dungeon, outdoor, interior, Wildemount-specific](docs/screenshot-map.svg)
-
-Procedural maps render on an HTML Canvas with tile colours, room labels, feature markers, and a grid overlay. Every map is saveable and exportable as PNG for use at the table.
-
-### Initiative Tracker
-
-![Live combat tracker with HP bars and condition tags](docs/screenshot-encounter.svg)
-
-Roll initiative for the whole table in one click. Track HP (click to damage or heal), apply conditions, advance turns. The generator builds CR-balanced monster groups against your party's level and size.
-
-### Music Player
-
-Eight procedurally synthesised scores — generated live in the browser via Tone.js, no audio files:
-
-| Mood | When to use |
-|---|---|
-| 🍺 Tavern | Ruby Sunrise, The Leaky Tap, any warm interior |
-| 💀 Dungeon | Slow exploration, the dark between rooms |
-| ⚔ Combat | Standard fights — fast and driving |
-| 🐉 Boss Fight | The thing at the end of the hall |
-| 🌲 Wilderness | Travel, the Greying Wildlands, open sky |
-| 🌑 Xhorhas / Kryn | Rosohna, Dunamancy, the Dynasty |
-| 💥 The Calamity | Eiselcross, Aeor ruins, ancient horror |
-| 🏆 Victory | They survived. Barely. |
-
----
-
-## Features
-
-| | |
-|---|---|
-| **Procedural maps** | BSP dungeon, outdoor terrain, interior templates — 22 subtypes including 10 Wildemount-specific presets |
-| **Wildemount presets** | Xhorhas wastes, Aeor ruins, Rosohna streets, Dwendalian keep, Menagerie port, Savalirwood, Eiselcross tundra, Kryn temple, Cerberus Assembly lab, Bazzoxan caverns |
-| **PNG export** | Download any map directly from the browser |
-| **Procedural music** | 8 moods synthesised live — no audio files, no CDN, pure Tone.js |
-| **NPC generator** | Wildemount name tables by culture, faction-aware backstories, Wildemount-specific races |
-| **Quest generator** | Faction + region-aware plot hooks across all 7 major factions, reward tables |
-| **Encounter builder** | CR-balanced encounter generation against party level and size |
-| **Initiative tracker** | Roll initiative, track HP with bars, apply conditions, advance turns |
-| **Lore reference** | Full Wildemount panel: factions, regions, deities, Dunamancy subclasses, 17 plot seeds |
-| **SQLite storage** | Everything stored locally, no external database |
-
----
-
-## Wildemount Coverage
-
-### Factions
-Dwendalian Empire · Cerberus Assembly · Kryn Dynasty · Cobalt Soul · The Revelry · The Myriad · Clovis Concord
-
-Each faction has its own plot hook table, region affiliation, and NPC generator weights.
-
-### Regions
-Western Wynandir · Xhorhas · Menagerie Coast · Greying Wildlands · Eiselcross
-
-Each region has location tables, terrain types, encounter flavour text, and culturally-appropriate NPC name tables (Zemnian Imperial, Xhorhasian Kryn, Coastal Clovis).
-
-### Races
-All standard 5e races plus the four Wildemount-unique options:
-- **Pallid Elf** — sun-starved, spent their lives underground
-- **Lotusden Halfling** — nature-attuned forest halflings
-- **Draconblood Dragonborn** — draconic nobles of shattered Draconia
-- **Ravenite Dragonborn** — former slaves, rebellious and hardened
-
-### Deities
-Full Wildemount pantheon including Prime Deities, Betrayer Gods, and **the Luxon** — the unique entity of light and rebirth worshipped by the Kryn Dynasty.
-
-### Subclasses
-- **Echo Knight** (Fighter) — Dunamancy echoes from alternate timelines
-- **Chronurgy Magic** (Wizard) — manipulate time, alter initiative, glimpse futures
-- **Graviturgy Magic** (Wizard) — bend gravity, crush foes, launch allies
-
----
-
-## Architecture
-
-```
-dndcampaign/
-├── backend/
-│   ├── main.py                  # FastAPI app
-│   ├── db.py                    # SQLite schema + helpers
-│   ├── generators/
-│   │   ├── map_gen.py           # BSP dungeon, outdoor terrain, interior templates
-│   │   ├── npc_gen.py           # Wildemount-flavoured NPC generation
-│   │   ├── quest_gen.py         # Faction/region-aware plot hooks
-│   │   └── encounter_gen.py     # CR-balanced monster encounter builder
-│   ├── data/
-│   │   ├── wildemount.py        # All Wildemount lore tables
-│   │   └── monsters.py          # Monster stat blocks + XP tables
-│   └── routers/                 # REST endpoints per domain
-├── frontend/
-│   ├── index.html               # App shell
-│   ├── styles.css               # Dark fantasy theme
-│   ├── app.js                   # Router, API helper, modal system
-│   └── views/                   # Per-view JS modules
-│       ├── maps.js              # Canvas renderer + PNG export
-│       ├── music.js             # Tone.js synthesis engine
-│       ├── npcs.js              # NPC manager + stat block display
-│       ├── encounters.js        # Initiative tracker
-│       ├── quests.js            # Quest board
-│       ├── lore.js              # Notes + Wildemount reference panel
-│       └── dashboard.js         # Campaign overview
-└── requirements.txt
-```
+**[→ Live Demo (GitHub Pages)](https://tkhemraj.github.io/dndcampaign/)**
 
 ---
 
@@ -133,57 +19,103 @@ python run.py
 
 Open `http://localhost:8080`, create a campaign, and start generating.
 
+**Requires:** Python 3.11+ · Modern browser (Chrome, Firefox, Edge — Web Audio API for music)
+
 ---
 
-## Map Tile Reference
+## What's Inside
 
-| Colour | Tile |
+| Module | What it does |
 |---|---|
-| Dark brown | Wall / void |
-| Warm brown | Floor |
-| Orange-brown | Door |
-| Deep blue | Water |
-| Dark red | Lava |
-| Dark green | Trees / vegetation |
-| Tan | Road / path |
-| Charcoal | Rubble |
-| Medium brown | Pillar |
-| Gold | Chest / treasure |
-| Blue-grey | Stairs |
-| Dark red (small dot) | Trap |
-| Green | Grass |
-| Sandy | Dirt / sand |
-| Blue-white | Snow / ice |
+| **Dashboard** | Stat cards, active quests, session journal, recent NPCs, quick-nav to every view |
+| **Maps** | Procedural canvas maps — 22 subtypes across dungeon, outdoor, interior, and 10 Wildemount presets. Saveable, PNG-exportable |
+| **NPCs** | Wildemount-aware generator: faction/region filters, ability scores, personality, backstory, stat block. Card or table view |
+| **Encounters** | CR-balanced monster groups → rich brief card (environment, tactics, skill opportunities, loot, escalation) → live initiative tracker |
+| **Initiative Tracker** | HP bars with click-to-edit, conditions modal, death saves, concentration tracking, combat log |
+| **Quests** | Faction + region-aware plot hook generator, difficulty cards, status board |
+| **Lore** | Notes database with categories (location, faction, deity, history, misc) + Wildemount reference panel |
+| **Session Journal** | Log sessions from the dashboard; last three entries always visible |
+| **Music** | 8 moods synthesised live in the browser via Tone.js — no audio files |
+
+### Music Moods
+
+| Mood | Use when |
+|---|---|
+| 🍺 Tavern | Warm interiors, downtime, The Leaky Tap |
+| 💀 Dungeon | Slow exploration, the dark between rooms |
+| ⚔ Combat | Standard fights |
+| 🐉 Boss Fight | The thing at the end of the hall |
+| 🌲 Wilderness | Travel, Greying Wildlands, open road |
+| 🌑 Xhorhas / Kryn | Rosohna, Dynasty politics, Dunamancy |
+| 💥 The Calamity | Eiselcross, Aeor ruins, ancient horror |
+| 🏆 Victory | They survived. Barely. |
 
 ---
 
-## Requirements
+## Wildemount Coverage
 
-- Python 3.11+
-- Modern browser (Chrome, Firefox, Edge — Web Audio API required for music)
+**Factions** — Dwendalian Empire · Cerberus Assembly · Kryn Dynasty · Cobalt Soul · The Revelry · The Myriad · Clovis Concord
+
+Each faction has its own NPC weight tables, plot hook pool, and region affiliation.
+
+**Regions** — Western Wynandir · Xhorhas · Menagerie Coast · Greying Wildlands · Eiselcross
+
+Each region has culturally-appropriate NPC name tables (Zemnian Imperial, Xhorhasian Kryn, Coastal Clovis), encounter flavour, and terrain types.
+
+**Races** — All 5e SRD races plus Pallid Elf, Lotusden Halfling, Draconblood Dragonborn, and Ravenite Dragonborn.
+
+**Deities** — Full Wildemount pantheon including the Luxon.
+
+**Subclasses** — Echo Knight · Chronurgy Magic · Graviturgy Magic
+
+**Map presets** — Xhorhas wastes, Aeor ruins, Rosohna streets, Dwendalian keep, Menagerie port, Savalirwood, Eiselcross tundra, Kryn temple, Cerberus lab, Bazzoxan caverns.
+
+---
+
+## Architecture
+
+```
+dndcampaign/
+├── backend/
+│   ├── main.py              # FastAPI app
+│   ├── db.py                # SQLite schema + helpers
+│   ├── generators/
+│   │   ├── map_gen.py       # BSP dungeon, outdoor, interior
+│   │   ├── npc_gen.py       # Wildemount NPC generation
+│   │   ├── quest_gen.py     # Faction/region-aware hooks
+│   │   └── encounter_gen.py # CR-balanced encounter builder
+│   ├── data/
+│   │   ├── wildemount.py    # All Wildemount lore tables
+│   │   └── monsters.py      # Monster stat blocks + XP tables
+│   └── routers/             # REST endpoints per domain
+├── frontend/
+│   ├── index.html           # App shell
+│   ├── styles.css           # Dark fantasy theme + per-view atmosphere
+│   ├── app.js               # Router, API helper, modal/toast system
+│   └── views/               # Per-view JS modules
+│       ├── dashboard.js
+│       ├── maps.js          # Canvas renderer + PNG export
+│       ├── npcs.js
+│       ├── quests.js
+│       ├── encounters.js    # Brief card + initiative tracker
+│       ├── lore.js
+│       └── music.js         # Tone.js synthesis engine
+├── docs/                    # GitHub Pages static demo
+└── run.py                   # Entry point (uvicorn, port 8080)
+```
+
+All campaign data lives in a local `dndcampaign.db` SQLite file. No migrations needed — the schema auto-creates on first run.
 
 ---
 
 ## Legal
 
-This is **unofficial Fan Content** made under the
-[Wizards of the Coast Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy).
-Not endorsed or sponsored by Wizards of the Coast.
+**Unofficial Fan Content** made under the [Wizards of the Coast Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy). Not endorsed by Wizards of the Coast.
 
-Monster stat blocks and rules mechanics are derived from the
-**D&D SRD 5.2** © Wizards of the Coast LLC, licensed under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+Monster stat blocks and rules mechanics are derived from the **D&D SRD 5.2** © Wizards of the Coast LLC, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-The world of Exandria and the continent of Wildemount — including all factions,
-locations, Dunamancy, and lore used in this project — were **created by
-Matthew Mercer** and are the intellectual property of **Critical Role, LLC**,
-published in *Explorer's Guide to Wildemount* (Wizards of the Coast, 2020).
-© Critical Role, LLC and Wizards of the Coast LLC. All rights reserved.
+The world of Exandria and the continent of Wildemount — including factions, locations, Dunamancy, and lore — were **created by Matthew Mercer** and are the intellectual property of **Critical Role, LLC**, published in *Explorer's Guide to Wildemount* (Wizards of the Coast, 2020). © Critical Role, LLC and Wizards of the Coast LLC. All rights reserved.
 
-Music synthesis by [Tone.js](https://tonejs.github.io/) (MIT).
+Music synthesis by [Tone.js](https://tonejs.github.io/) (MIT). See [NOTICE.md](NOTICE.md) for full attributions.
 
-See [NOTICE.md](NOTICE.md) for full attributions.
-
-## License
-
-MIT — original code only. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
+**License:** MIT — original code only. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
