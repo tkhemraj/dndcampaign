@@ -262,6 +262,44 @@ window.showNewCampaignModal = function(existing = null) {
   }
 };
 
+// ── Player View share modal ─────────────────────────────────────────────────
+document.getElementById('player-link').addEventListener('click', async () => {
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:6px">Share Player View</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:20px">Give players one of these links. Both show live map &amp; combat updates from this session.</p>
+    <div id="pv-loading" style="color:var(--muted);font-size:13px">Detecting LAN address…</div>
+    <div id="pv-urls" class="hidden"></div>`;
+  openModal();
+
+  try {
+    const info = await api('/api/live/host-info');
+    document.getElementById('pv-loading').remove();
+    document.getElementById('pv-urls').innerHTML = `
+      <div class="pv-url-block">
+        <div class="pv-url-label">Local network (LAN) — always works</div>
+        <div class="pv-url-row">
+          <input class="pv-url-input" readonly value="${info.local_url}" id="pv-local"/>
+          <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${info.local_url}').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+          <a class="btn btn-secondary btn-sm" href="${info.local_url}" target="_blank">Open</a>
+        </div>
+        <div class="pv-url-note">Players must be on the same WiFi / LAN as this machine.</div>
+      </div>
+      <div class="pv-url-block">
+        <div class="pv-url-label">GitHub Pages — works anywhere (requires host param)</div>
+        <div class="pv-url-row">
+          <input class="pv-url-input" readonly value="${info.gh_url}" id="pv-gh"/>
+          <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${info.gh_url}').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+          <a class="btn btn-secondary btn-sm" href="${info.gh_url}" target="_blank">Open</a>
+        </div>
+        <div class="pv-url-note">⚠ Browser may block HTTP→HTTPS connections. If it doesn't load, use the LAN link above.</div>
+      </div>`;
+    document.getElementById('pv-urls').classList.remove('hidden');
+  } catch(e) {
+    document.getElementById('pv-loading').textContent = 'Could not detect server address. Is the backend running?';
+  }
+});
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
   await loadCampaigns();

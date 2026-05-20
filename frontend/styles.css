@@ -119,13 +119,27 @@ body {
 #nav-links li.active { background: var(--surface2); color: var(--accent); font-weight: 600; border-left-color: var(--accent); }
 
 #player-link {
-  display: block; padding: 7px 10px; border-radius: var(--radius-sm);
-  font-size: 11px; color: var(--muted2); text-decoration: none;
-  border: 1px dashed var(--border); text-align: center;
+  display: block; width: 100%; padding: 7px 10px; border-radius: var(--radius-sm);
+  font-size: 11px; color: var(--muted2); background: transparent;
+  border: 1px dashed var(--border); text-align: center; cursor: pointer;
   transition: color var(--transition), border-color var(--transition);
   margin-bottom: 4px;
 }
 #player-link:hover { color: var(--accent); border-color: var(--accent-dim); }
+
+/* ── Player-view share modal ──────────────────────────────────────────────── */
+.pv-url-block {
+  margin-bottom: 18px; padding: 14px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.pv-url-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+.pv-url-row   { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.pv-url-input {
+  flex: 1; font-size: 11px; font-family: monospace; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 5px 8px; min-width: 0;
+}
+.pv-url-note  { font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 #music-mini {
   display: flex; align-items: center; gap: 8px; padding: 8px;

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Player View — D&D Campaign</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #0e0c0a; --surface:  #1a1612; --surface2: #251e18;
+      --border:   #3d2f22; --border-hi:#5a4530;
+      --text:     #d4c5a9; --muted:    #7d6b55;
+      --accent:   #c8973c; --accent-dim:#8a6828;
+      --ok:       #5a9e5a; --warn:     #c87c3c;  --crit:    #c84040;
+      --gold:     #f0c040; --shadow-lg: 0 8px 24px rgba(0,0,0,.65);
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 14px; line-height: 1.5;
+      height: 100dvh; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Status bar ── */
+    #status-bar {
+      height: 36px; flex-shrink: 0;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; padding: 0 14px;
+      font-size: 12px;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0; transition: background .3s;
+    }
+    .dot.connected    { background: var(--ok);   box-shadow: 0 0 6px var(--ok); }
+    .dot.reconnecting { background: var(--warn);  animation: blink 1s ease-in-out infinite; }
+    .dot.disconnected { background: var(--crit); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    #conn-label { color: var(--muted); }
+    #bar-title  {
+      font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700;
+      color: var(--accent); margin-left: auto; letter-spacing: .03em;
+    }
+
+    /* ── Map panel ── */
+    #map-panel {
+      flex: 1; overflow: auto; background: #050403;
+      position: relative; touch-action: pan-x pan-y;
+    }
+    #pv-canvas {
+      display: block;
+      image-rendering: pixelated; image-rendering: crisp-edges;
+      max-width: 100%; height: auto;
+    }
+
+    /* ── Setup screen ── */
+    #setup-screen {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; background: var(--bg); padding: 24px;
+    }
+    .setup-icon  { font-size: 48px; opacity: .35; }
+    .setup-title { font-family: 'Cinzel', serif; font-size: 20px; color: var(--accent); letter-spacing: .04em; }
+    .setup-sub   { font-size: 13px; color: var(--muted); text-align: center; max-width: 340px; }
+    .setup-form  { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px; margin-top: 6px; }
+    .setup-input {
+      background: #1a1612; border: 1px solid #3d2f22; border-radius: 6px;
+      color: #d4c5a9; padding: 10px 12px; font-size: 13px; font-family: monospace;
+      width: 100%;
+    }
+    .setup-input:focus { outline: none; border-color: #c8973c; }
+    .setup-btn {
+      background: #c8973c; border: none; border-radius: 6px;
+      color: #0e0c0a; font-weight: 700; font-size: 13px;
+      padding: 10px; cursor: pointer; width: 100%;
+      font-family: 'Inter', sans-serif;
+    }
+    .setup-btn:hover { background: #dba84a; }
+    .setup-error { font-size: 12px; color: #c84040; text-align: center; max-width: 340px; }
+
+    /* ── Waiting screen ── */
+    #waiting {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; background: var(--bg); z-index: 10;
+    }
+    .wait-icon  { font-size: 48px; opacity: .3; }
+    .wait-title { font-family: 'Cinzel', serif; font-size: 20px; color: var(--accent); letter-spacing: .04em; }
+    .wait-sub   { font-size: 13px; color: var(--muted); }
+    .wait-pulse {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--accent-dim);
+      animation: blink 2s ease-in-out infinite; margin-top: 4px;
+    }
+
+    /* ── Legend (map overlay) ── */
+    #pv-legend {
+      position: absolute; bottom: 8px; left: 8px;
+      display: flex; flex-wrap: wrap; gap: 5px;
+      background: rgba(14,12,10,.88); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 10px; max-width: 380px;
+      pointer-events: none;
+    }
+    .leg-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+    .leg-dot  { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── Combat drawer ── */
+    #combat-drawer {
+      position: fixed; bottom: 0; right: 0;
+      width: 300px; max-height: 58vh;
+      background: var(--surface); border: 1px solid var(--border-hi);
+      border-bottom: none; border-radius: 12px 0 0 0;
+      display: flex; flex-direction: column;
+      transform: translateY(100%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+      box-shadow: var(--shadow-lg); z-index: 50;
+    }
+    #combat-drawer.open { transform: translateY(0); }
+
+    #combat-handle {
+      padding: 9px 14px 8px; cursor: pointer; user-select: none;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    #combat-handle:hover { background: var(--surface2); }
+    .handle-pip { width: 32px; height: 3px; border-radius: 2px; background: var(--border); }
+    #combat-title {
+      font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
+      color: var(--accent); letter-spacing: .05em; flex: 1;
+    }
+    #round-badge {
+      font-size: 11px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1px 8px; color: var(--muted); flex-shrink: 0;
+    }
+
+    #combat-body { overflow-y: auto; flex: 1; padding: 8px; }
+
+    /* ── Combatant rows ── */
+    .cb-row {
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 8px 10px; border-radius: 6px; margin-bottom: 5px;
+      background: var(--surface2); border-left: 3px solid transparent;
+      transition: border-color .15s, background .15s;
+    }
+    .cb-row.active { border-left-color: var(--gold); background: rgba(240,192,64,.07); }
+    .cb-row.dead   { opacity: .32; }
+    .cb-top  { display: flex; align-items: center; gap: 7px; }
+    .cb-icon { font-size: 14px; flex-shrink: 0; }
+    .cb-name {
+      font-weight: 600; font-size: 13px; flex: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cb-name.player { color: var(--accent); }
+    .cb-hp   { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+    .cb-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .cb-bar  { height: 100%; border-radius: 2px; transition: width .4s ease; }
+    .cb-bar.ok   { background: var(--ok);   }
+    .cb-bar.low  { background: var(--warn); }
+    .cb-bar.crit { background: var(--crit); }
+    .cb-conds { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+    .cb-cond  {
+      font-size: 10px; padding: 1px 6px; border-radius: 8px;
+      background: rgba(200,124,60,.12); color: var(--warn);
+      border: 1px solid rgba(200,124,60,.25);
+    }
+
+    @media (max-width: 680px) {
+      #combat-drawer { width: 100%; border-radius: 12px 12px 0 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="status-bar">
+  <div class="dot disconnected" id="conn-dot"></div>
+  <span id="conn-label">Not connected</span>
+  <span id="bar-title">⚔ Player View</span>
+</div>
+
+<div id="map-panel">
+  <canvas id="pv-canvas"></canvas>
+  <div id="pv-legend"></div>
+
+  <!-- Setup screen — shown until a host is configured -->
+  <div id="setup-screen">
+    <div class="setup-icon">⚔</div>
+    <div class="setup-title">Player View</div>
+    <div class="setup-sub">Enter the address your DM gave you to connect to the session.</div>
+    <div class="setup-form">
+      <input class="setup-input" id="host-input" type="text"
+        placeholder="e.g. 192.168.1.42:8080" autocomplete="off" spellcheck="false"/>
+      <button class="setup-btn" id="setup-connect">Connect</button>
+    </div>
+    <div class="setup-error hidden" id="setup-error"></div>
+    <div class="setup-sub" style="margin-top:6px">
+      The DM can find this address in the <strong style="color:var(--accent)">Player View</strong> button in their app.
+    </div>
+  </div>
+
+  <!-- Waiting screen — shown after connected but nothing shared yet -->
+  <div id="waiting" style="display:none">
+    <div class="wait-icon">⚔</div>
+    <div class="wait-title">Waiting for DM</div>
+    <div class="wait-sub">Nothing has been shared yet.</div>
+    <div class="wait-pulse"></div>
+  </div>
+</div>
+
+<div id="combat-drawer">
+  <div id="combat-handle" onclick="toggleDrawer()">
+    <div class="handle-pip"></div>
+    <div id="combat-title">COMBAT</div>
+    <div id="round-badge">Round —</div>
+  </div>
+  <div id="combat-body"></div>
+</div>
+
+<script>
+'use strict';
+
+// ── Tile constants (mirrors maps.js) ─────────────────────────────────────────
+const TILE_SIZE = 18;
+const TILE_COLORS = {
+  0:'#0a0806', 1:'#3a3020', 2:'#7a5020', 3:'#1a3a5a', 4:'#7a2800',
+  5:'#1a4a10', 6:'#5a4020', 7:'#2a2218', 8:'#4a3a28', 9:'#7a6a18',
+  10:'#404860', 11:'#5a0a0a', 12:'#2a4a18', 13:'#4a3a18', 14:'#6a8a9a',
+};
+const TILE_LABELS = {
+  0:'Wall', 1:'Floor', 2:'Door', 3:'Water', 4:'Lava', 5:'Trees', 6:'Road',
+  7:'Rubble', 8:'Pillar', 9:'Chest', 10:'Stairs', 11:'Trap', 12:'Grass', 13:'Dirt', 14:'Snow',
+};
+const FEATURE_COLORS = {
+  chest:'#f0c040', stairs_up:'#6080ff', stairs_down:'#8040ff', trap:'#ff2020',
+  altar:'#c060ff', pillar:'#806040', fireplace:'#ff6020', throne:'#c0a020',
+  ruins:'#604838', campfire:'#ff8020', luxon_beacon_fragment:'#40c0ff',
+  luxon_altar:'#8040ff', betrayer_god_shrine:'#800020',
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let _drawerOpen = false;
+let _hasMap     = false;
+let _hasEnc     = false;
+let _retryTimer = null;
+let _es         = null;
+let _host       = null;   // e.g. "192.168.1.42:8080"
+
+// ── Host resolution ─────────────────────────────────────────────────────────
+function getHost() {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('host');
+  if (fromUrl) {
+    localStorage.setItem('dnd_player_host', fromUrl);
+    return fromUrl;
+  }
+  return localStorage.getItem('dnd_player_host') || null;
+}
+
+function init() {
+  _host = getHost();
+  if (_host) {
+    document.getElementById('host-input').value = _host;
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('waiting').style.display = 'flex';
+    connect();
+  }
+}
+
+document.getElementById('setup-connect').addEventListener('click', () => {
+  const raw = document.getElementById('host-input').value.trim().replace(/^https?:\/\//, '');
+  if (!raw) return;
+  localStorage.setItem('dnd_player_host', raw);
+  _host = raw;
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('waiting').style.display = 'flex';
+  connect();
+});
+
+document.getElementById('host-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('setup-connect').click();
+});
+
+// ── SSE ───────────────────────────────────────────────────────────────────────
+function connect() {
+  if (!_host) return;
+  const url = `http://${_host}/api/live/stream`;
+  setStatus('reconnecting');
+
+  const es = new EventSource(url);
+  _es = es;
+
+  es.onopen = () => {
+    setStatus('connected');
+    clearTimeout(_retryTimer);
+    _retryTimer = null;
+    hideSetupError();
+  };
+
+  es.onmessage = e => {
+    try { applyState(JSON.parse(e.data)); } catch (_) {}
+  };
+
+  es.onerror = () => {
+    es.close();
+    _es = null;
+    setStatus('disconnected');
+
+    // If we're on HTTPS, the connection to HTTP may be blocked by mixed-content policy
+    if (window.location.protocol === 'https:') {
+      showSetupError(
+        '⚠ Connection blocked — your browser prevents this page (HTTPS) from connecting to ' +
+        `http://${_host} (HTTP). Ask your DM for the local LAN link instead ` +
+        `(http://${_host}/player) and open it directly in your browser.`
+      );
+      // Reset so user can re-enter a host
+      document.getElementById('setup-screen').style.display = 'flex';
+      document.getElementById('waiting').style.display = 'none';
+      return;
+    }
+
+    _retryTimer = setTimeout(connect, 3500);
+  };
+}
+
+function showSetupError(msg) {
+  const el = document.getElementById('setup-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+function hideSetupError() {
+  document.getElementById('setup-error').classList.add('hidden');
+}
+
+function setStatus(s) {
+  document.getElementById('conn-dot').className = `dot ${s}`;
+  document.getElementById('conn-label').textContent =
+    s === 'connected' ? `Connected to ${_host}` :
+    s === 'reconnecting' ? 'Connecting…' : 'Disconnected';
+}
+
+// ── State dispatcher ──────────────────────────────────────────────────────────
+function applyState(state) {
+  _hasMap = !!state.map;
+  _hasEnc = !!state.encounter;
+
+  document.getElementById('waiting').style.display = (_hasMap || _hasEnc) ? 'none' : 'flex';
+
+  if (_hasMap) renderMap(state.map);
+
+  const drawer = document.getElementById('combat-drawer');
+  if (_hasEnc) {
+    renderCombat(state.encounter);
+    if (!_drawerOpen) { drawer.classList.add('open'); _drawerOpen = true; }
+  } else {
+    drawer.classList.remove('open');
+    _drawerOpen = false;
+  }
+}
+
+// ── Map renderer ─────────────────────────────────────────────────────────────
+function renderMap(mapData) {
+  const data  = mapData.data || mapData;
+  const tiles = data.tiles;
+  const W = data.width, H = data.height;
+  const canvas = document.getElementById('pv-canvas');
+
+  canvas.width  = W * TILE_SIZE;
+  canvas.height = H * TILE_SIZE;
+
+  const ctx = canvas.getContext('2d');
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      ctx.fillStyle = TILE_COLORS[tiles[y][x]] || '#111';
+      ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    }
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x <= W; x++) {
+    ctx.beginPath(); ctx.moveTo(x*TILE_SIZE, 0); ctx.lineTo(x*TILE_SIZE, H*TILE_SIZE); ctx.stroke();
+  }
+  for (let y = 0; y <= H; y++) {
+    ctx.beginPath(); ctx.moveTo(0, y*TILE_SIZE); ctx.lineTo(W*TILE_SIZE, y*TILE_SIZE); ctx.stroke();
+  }
+
+  (data.features || []).forEach(f => {
+    const col = FEATURE_COLORS[f.type] || '#fff';
+    const cx  = f.x * TILE_SIZE + TILE_SIZE / 2;
+    const cy  = f.y * TILE_SIZE + TILE_SIZE / 2;
+    ctx.beginPath(); ctx.arc(cx, cy, TILE_SIZE / 3, 0, Math.PI * 2);
+    ctx.fillStyle = col + '99'; ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+  });
+
+  if (data.rooms) {
+    ctx.font = `${TILE_SIZE * 0.55}px sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,200,0.45)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    data.rooms.forEach(r => {
+      ctx.fillText((r.type || '').replace(/_/g, ' '), (r.x + r.w / 2) * TILE_SIZE, (r.y + r.h / 2) * TILE_SIZE);
+    });
+  }
+
+  document.getElementById('bar-title').textContent = `⚔ ${mapData.name || 'Map'}`;
+
+  const used = new Set(tiles.flat());
+  document.getElementById('pv-legend').innerHTML = [...used].map(t =>
+    `<div class="leg-item"><div class="leg-dot" style="background:${TILE_COLORS[t]||'#111'}"></div>${TILE_LABELS[t]||t}</div>`
+  ).join('');
+}
+
+// ── Combat renderer ───────────────────────────────────────────────────────────
+function renderCombat(enc) {
+  document.getElementById('combat-title').textContent = enc.name || 'COMBAT';
+  document.getElementById('round-badge').textContent  = `Round ${enc.round || 1}`;
+
+  document.getElementById('combat-body').innerHTML = enc.combatants.map((c, i) => {
+    const pct    = Math.max(0, Math.min(100, (c.hp / c.max_hp) * 100));
+    const barCls = pct <= 0 ? 'crit' : pct <= 30 ? 'crit' : pct <= 55 ? 'low' : 'ok';
+    const active = (i === (enc.current_idx ?? -1)) && c.hp > 0;
+    const dead   = c.hp <= 0;
+    const conds  = Array.isArray(c.conditions) ? c.conditions : [];
+
+    return `<div class="cb-row${active?' active':''}${dead?' dead':''}">
+      <div class="cb-top">
+        <span class="cb-icon">${c.is_player ? '🧙' : '👹'}</span>
+        <span class="cb-name${c.is_player?' player':''}">${c.name}${active ? ' ◀' : ''}${dead ? ' 💀' : ''}</span>
+        <span class="cb-hp">${c.hp}/${c.max_hp}</span>
+      </div>
+      <div class="cb-bar-wrap"><div class="cb-bar ${barCls}" style="width:${pct}%"></div></div>
+      ${conds.length ? `<div class="cb-conds">${conds.map(cd => `<span class="cb-cond">${cd}</span>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Drawer toggle ─────────────────────────────────────────────────────────────
+function toggleDrawer() {
+  if (!_hasEnc) return;
+  _drawerOpen = !_drawerOpen;
+  document.getElementById('combat-drawer').classList.toggle('open', _drawerOpen);
+}
+
+init();
+</script>
+</body>
+</html>
