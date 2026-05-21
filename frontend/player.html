@@ -43,7 +43,7 @@
     #conn-label { color: var(--muted); }
     #bar-title  {
       font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700;
-      color: var(--accent); margin-left: auto; letter-spacing: .03em;
+      color: var(--accent); margin-left: auto; margin-right: auto; letter-spacing: .03em;
     }
 
     /* ── Map panel ── */
@@ -54,7 +54,25 @@
     #pv-canvas {
       display: block;
       image-rendering: pixelated; image-rendering: crisp-edges;
-      max-width: 100%; height: auto;
+    }
+
+    /* ── Zoom controls ── */
+    .zoom-bar {
+      display: flex; align-items: center; gap: 3px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 2px 5px; margin-left: auto;
+    }
+    .zoom-btn {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 15px; font-weight: 700;
+      padding: 0 5px; line-height: 1.7; border-radius: 4px;
+      transition: color .12s, background .12s;
+    }
+    .zoom-btn:hover { color: var(--accent); background: rgba(200,151,60,.12); }
+    .zoom-btn.reset { font-size: 12px; }
+    .zoom-lbl {
+      font-size: 11px; font-weight: 700; color: var(--text);
+      min-width: 36px; text-align: center; font-variant-numeric: tabular-nums;
     }
 
     /* ── Waiting screen ── */
@@ -153,6 +171,12 @@
   <div class="dot disconnected" id="conn-dot"></div>
   <span id="conn-label">Connecting…</span>
   <span id="bar-title">⚔ Player View</span>
+  <div class="zoom-bar" id="zoom-bar" style="display:none">
+    <button class="zoom-btn" id="pv-zoom-out" title="Zoom out">−</button>
+    <span class="zoom-lbl" id="pv-zoom-lbl">100%</span>
+    <button class="zoom-btn" id="pv-zoom-in"  title="Zoom in">+</button>
+    <button class="zoom-btn reset" id="pv-zoom-rst" title="Fit to screen">⤢</button>
+  </div>
 </div>
 
 <div id="map-panel">
@@ -202,6 +226,43 @@ let _drawerOpen = false;
 let _hasMap     = false;
 let _hasEnc     = false;
 let _retryTimer = null;
+let _zoom       = 1.0;
+const ZOOM_STEP = 0.25, ZOOM_MIN = 0.25, ZOOM_MAX = 4.0;
+
+// ── Zoom ──────────────────────────────────────────────────────────────────────
+function applyZoom(pivotX, pivotY) {
+  const canvas    = document.getElementById('pv-canvas');
+  const panel     = document.getElementById('map-panel');
+  if (!canvas.width) return;
+  const newW = Math.round(canvas.width  * _zoom);
+  const newH = Math.round(canvas.height * _zoom);
+  const oldW = canvas.offsetWidth  || newW;
+  const oldH = canvas.offsetHeight || newH;
+  const rx = (panel.scrollLeft + (pivotX ?? panel.clientWidth  / 2)) / oldW;
+  const ry = (panel.scrollTop  + (pivotY ?? panel.clientHeight / 2)) / oldH;
+  canvas.style.width  = newW + 'px';
+  canvas.style.height = newH + 'px';
+  canvas.style.imageRendering = _zoom >= 2 ? 'pixelated' : 'auto';
+  panel.scrollLeft = rx * newW - (pivotX ?? panel.clientWidth  / 2);
+  panel.scrollTop  = ry * newH - (pivotY ?? panel.clientHeight / 2);
+  document.getElementById('pv-zoom-lbl').textContent = Math.round(_zoom * 100) + '%';
+}
+
+function zoomBy(delta, pivotX, pivotY) {
+  _zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round((_zoom + delta) * 100) / 100));
+  applyZoom(pivotX, pivotY);
+}
+
+document.getElementById('pv-zoom-in').addEventListener('click',  () => zoomBy(+ZOOM_STEP));
+document.getElementById('pv-zoom-out').addEventListener('click', () => zoomBy(-ZOOM_STEP));
+document.getElementById('pv-zoom-rst').addEventListener('click', () => { _zoom = 1.0; applyZoom(); });
+
+document.getElementById('map-panel').addEventListener('wheel', e => {
+  if (!_hasMap) return;
+  e.preventDefault();
+  const r = document.getElementById('map-panel').getBoundingClientRect();
+  zoomBy(e.deltaY < 0 ? +ZOOM_STEP : -ZOOM_STEP, e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
 
 // ── SSE ───────────────────────────────────────────────────────────────────────
 function connect() {
@@ -296,6 +357,8 @@ function renderMap(mapData) {
   }
 
   document.getElementById('bar-title').textContent = `⚔ ${mapData.name || 'Map'}`;
+  document.getElementById('zoom-bar').style.display = '';
+  applyZoom();
 
   const used = new Set(tiles.flat());
   document.getElementById('pv-legend').innerHTML = [...used].map(t =>
