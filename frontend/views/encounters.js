@@ -100,10 +100,8 @@ function _enrichEncounter(enc, envName) {
   const env = (envName && envName !== '(Random)')
     ? (_ENC_ENVIRONMENTS.find(e => e.name === envName) || _pick(_ENC_ENVIRONMENTS))
     : _pick(_ENC_ENVIRONMENTS);
-
-  const baseType = enc.dominant_type || 'humanoid';
+  const baseType   = enc.dominant_type || 'humanoid';
   const tacticsKey = Object.keys(_ENC_TACTICS).find(t => baseType.includes(t)) || 'humanoid';
-
   return {
     env,
     tactics:     _ENC_TACTICS[tacticsKey],
@@ -119,35 +117,47 @@ let _activeEncounterId = null;
 let _currentTurnIdx    = 0;
 let _liveBroadcast     = false;
 
-// ── Main view ─────────────────────────────────────────────────────────────────
 const _ENV_NAMES = ['(Random)',..._ENC_ENVIRONMENTS.map(e=>e.name)];
 
+// ── Main view ─────────────────────────────────────────────────────────────────
 window.renderEncountersView = async function(campaignId) {
   const el = document.getElementById('content');
   el.innerHTML = `
     <div class="view-header">
-      <h1>⚔ Encounters</h1>
+      <div>
+        <h1>Encounters</h1>
+        <span class="subtitle">Combat builder & initiative tracker</span>
+      </div>
       <div class="view-actions">
-        <button class="btn btn-primary" id="btn-new-enc">+ New</button>
+        <button class="btn btn-primary" id="btn-new-enc">+ New Encounter</button>
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:16px">
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:10px">
-        <div class="form-group"><label>Party Size</label><input id="enc-size"  type="number" value="4" min="1" max="10"/></div>
-        <div class="form-group"><label>Party Level</label><input id="enc-level" type="number" value="5" min="1" max="20"/></div>
-        <div class="form-group"><label>Difficulty</label>
-          <select id="enc-diff"><option>easy</option><option selected>medium</option><option>hard</option><option>deadly</option></select>
+    <div class="gen-panel enc-gen-panel">
+      <div class="gen-panel-fields enc-gen-fields">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Party Size</label>
+          <input id="enc-size" type="number" value="4" min="1" max="10" style="width:80px"/>
         </div>
-        <div class="form-group" style="justify-content:flex-end;flex-direction:row;align-items:flex-end;gap:8px">
-          <label style="white-space:nowrap;margin-bottom:0"><input type="checkbox" id="enc-wm"/> Wildemount</label>
-          <button class="btn btn-purple" id="btn-do-gen-enc">⚙ Generate</button>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Party Level</label>
+          <input id="enc-level" type="number" value="5" min="1" max="20" style="width:80px"/>
         </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Difficulty</label>
+          <select id="enc-diff" style="width:110px">
+            <option>easy</option><option selected>medium</option><option>hard</option><option>deadly</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;flex:1;min-width:160px">
+          <label>Environment</label>
+          <select id="enc-env">${_ENV_NAMES.map(n=>`<option>${n}</option>`).join('')}</select>
+        </div>
+        <label class="enc-wm-label">
+          <input type="checkbox" id="enc-wm"/> Wildemount only
+        </label>
       </div>
-      <div class="form-group" style="margin-bottom:0">
-        <label>Environment</label>
-        <select id="enc-env">${_ENV_NAMES.map(n=>`<option>${n}</option>`).join('')}</select>
-      </div>
+      <button class="btn btn-purple gen-panel-btn" id="btn-do-gen-enc">⚙ Generate</button>
     </div>
 
     <div id="enc-brief-result"></div>
@@ -167,19 +177,24 @@ window.renderEncountersView = async function(campaignId) {
       </div>`;
       return;
     }
-    el2.innerHTML = `<div class="section-title">Saved Encounters</div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Name</th><th>Difficulty</th><th>Status</th><th></th></tr></thead>
-        <tbody>${encs.map(e => `<tr>
-          <td><strong>${e.name}</strong></td>
-          <td><span class="badge badge-${e.difficulty}">${e.difficulty}</span></td>
-          <td><span class="badge badge-${e.status}">${e.status}</span></td>
-          <td style="display:flex;gap:4px">
-            <button class="btn btn-secondary btn-sm" onclick="openCombatTracker(${e.id})">▶ Run</button>
-            <button class="btn btn-danger btn-sm"    onclick="deleteEnc(${e.id})">✕</button>
-          </td>
-        </tr>`).join('')}</tbody>
-      </table></div>`;
+    el2.innerHTML = `
+      <div class="section-title" style="margin-bottom:10px">Saved Encounters</div>
+      <div class="enc-saved-list">
+        ${encs.map(e => `
+          <div class="enc-saved-item">
+            <div class="enc-saved-info">
+              <div class="enc-saved-name">${e.name}</div>
+              <div class="enc-saved-meta">
+                <span class="badge badge-${e.difficulty}">${e.difficulty}</span>
+                <span class="badge badge-${e.status}">${e.status}</span>
+              </div>
+            </div>
+            <div class="enc-saved-actions">
+              <button class="btn btn-primary btn-sm" onclick="openCombatTracker(${e.id})">▶ Run</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteEnc(${e.id})">✕</button>
+            </div>
+          </div>`).join('')}
+      </div>`;
   };
   await loadList();
 
@@ -191,9 +206,8 @@ window.renderEncountersView = async function(campaignId) {
     const env   = document.getElementById('enc-env').value;
     const cid   = campaignId ? `&campaign_id=${campaignId}` : '';
     const btn   = document.getElementById('btn-do-gen-enc');
-
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>';
+    btn.innerHTML = '<span class="spinner"></span> Generating…';
     try {
       const enc = await api(`/api/encounters/generate?party_size=${size}&party_level=${level}&difficulty=${diff}&wildemount_only=${wm}${cid}`);
       const enrichment = _enrichEncounter(enc, env);
@@ -257,34 +271,40 @@ function _renderBrief(enc, enrichment, campaignId, loadList) {
   const wrap = document.getElementById('enc-brief-result');
   wrap.innerHTML = `<div class="enc-brief">
     <div class="enc-brief-header">
-      <div class="enc-brief-title">${enc.name}</div>
-      <div class="enc-brief-monsters">${monsterSummary}</div>
-      <div class="enc-brief-xp">~${xp} XP · party of ${enc.party_size || 4}</div>
+      <div>
+        <div class="enc-brief-title">${enc.name}</div>
+        <div class="enc-brief-monsters">${monsterSummary}</div>
+      </div>
+      <div class="enc-brief-header-right">
+        <div class="enc-brief-xp">~${xp} XP</div>
+        <div class="enc-brief-party">party of ${enc.party_size || 4} · level ${enc.party_level || '?'}</div>
+        <span class="badge badge-${enc.difficulty}">${enc.difficulty}</span>
+      </div>
     </div>
     <div class="enc-brief-body">
 
       <div class="enc-brief-section">
-        <div class="enc-section-label">📍 ${env.name}</div>
+        <div class="enc-section-label"><span>📍</span> ${env.name}</div>
         <div class="enc-env-desc">${env.desc}</div>
         ${featuresHtml}
       </div>
 
       <div class="enc-brief-section">
-        <div class="enc-section-label">⚔ Tactics — ${dominantType}</div>
-        <div class="enc-tactic"><span class="enc-tactic-label">Opening — </span>${tactics.open}</div>
-        <div class="enc-tactic" style="margin-top:8px"><span class="enc-tactic-label">Sustained — </span>${tactics.sustain}</div>
-        <div class="enc-tactic" style="margin-top:8px"><span class="enc-tactic-label">Morale — </span>${tactics.morale}</div>
+        <div class="enc-section-label"><span>⚔</span> Tactics — ${dominantType}</div>
+        <div class="enc-tactic"><span class="enc-tactic-label">Opening</span>${tactics.open}</div>
+        <div class="enc-tactic"><span class="enc-tactic-label">Sustained</span>${tactics.sustain}</div>
+        <div class="enc-tactic"><span class="enc-tactic-label">Morale</span>${tactics.morale}</div>
       </div>
 
       <div class="enc-brief-section">
-        <div class="enc-section-label">🎯 Skill Opportunities</div>
+        <div class="enc-section-label"><span>🎯</span> Skill Opportunities</div>
         ${skillOpps.map(s=>`<div class="enc-skill-opp"><strong>${s.skill}</strong> — ${s.effect}</div>`).join('')}
       </div>
 
       <div class="enc-brief-section">
-        <div class="enc-section-label">⚡ Escalation</div>
+        <div class="enc-section-label"><span>⚡</span> Escalation</div>
         <div class="enc-escalation">${escalation}</div>
-        <div class="enc-section-label" style="margin-top:16px">💰 Loot</div>
+        <div class="enc-section-label" style="margin-top:16px"><span>💰</span> Loot</div>
         ${loot.map(l=>`<div class="enc-loot-item">${l}</div>`).join('')}
       </div>
 
@@ -292,7 +312,6 @@ function _renderBrief(enc, enrichment, campaignId, loadList) {
     <div class="enc-brief-actions">
       <button class="btn btn-primary" id="btn-save-run">▶ Save &amp; Run</button>
       <button class="btn btn-secondary" id="btn-regen">↺ Regenerate</button>
-      <span style="margin-left:auto;font-size:11px;color:var(--muted)">${enc.difficulty} difficulty · level ${enc.party_level || '?'}</span>
     </div>
   </div>`;
 
@@ -330,9 +349,7 @@ function _renderBrief(enc, enrichment, campaignId, loadList) {
       const newEnc = await api(`/api/encounters/generate?party_size=${size}&party_level=${level}&difficulty=${diff}&wildemount_only=${wm}${cid}`);
       const newEnrichment = _enrichEncounter(newEnc, env);
       _renderBrief(newEnc, newEnrichment, campaignId, loadList);
-    } finally {
-      // button is gone after re-render, no need to restore
-    }
+    } finally {}
   });
 }
 
@@ -341,28 +358,37 @@ async function refreshTracker() {
   const enc = await api(`/api/encounters/${_activeEncounterId}`);
   const el  = document.getElementById('combat-tracker');
   const combatants = (enc.combatants || []).sort((a,b) => b.initiative - a.initiative);
+  const currentIdx = _currentTurnIdx % Math.max(1, combatants.length);
+  const round      = Math.floor(_currentTurnIdx / Math.max(1, combatants.length)) + 1;
 
   el.innerHTML = `
-    <div class="divider"></div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      <h2 style="font-family:'Cinzel',serif;color:var(--accent)">⚔ ${enc.name}</h2>
-      <span class="badge badge-${enc.difficulty}">${enc.difficulty}</span>
-      <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
-        <button class="btn btn-secondary btn-sm" id="btn-roll-init">🎲 Roll Initiative</button>
-        <button class="btn btn-secondary btn-sm" id="btn-next-turn">▶ Next Turn</button>
-        <button class="btn btn-secondary btn-sm" id="btn-add-combatant">+ Add</button>
-        <button class="btn btn-sm ${_liveBroadcast?'btn-primary':'btn-secondary'}" id="btn-live-toggle" title="Broadcast to player view">📡${_liveBroadcast?' Live':''}</button>
-        <select id="enc-status-sel" class="btn btn-secondary btn-sm">
-          ${['planned','active','completed'].map(s=>`<option ${enc.status===s?'selected':''}>${s}</option>`).join('')}
-        </select>
+    <div class="tracker-wrap">
+      <div class="tracker-header">
+        <div class="tracker-header-left">
+          <h2 class="tracker-title">${enc.name}</h2>
+          <div class="tracker-meta">
+            <span class="badge badge-${enc.difficulty}">${enc.difficulty}</span>
+            <span class="tracker-round">Round ${round}</span>
+          </div>
+        </div>
+        <div class="tracker-header-right">
+          <button class="btn btn-secondary btn-sm" id="btn-roll-init">🎲 Roll Initiative</button>
+          <button class="btn btn-primary btn-sm"   id="btn-next-turn">▶ Next Turn</button>
+          <button class="btn btn-secondary btn-sm" id="btn-add-combatant">+ Add</button>
+          <button class="btn btn-sm ${_liveBroadcast?'btn-primary':'btn-secondary'}" id="btn-live-toggle" title="Broadcast to player view">📡${_liveBroadcast?' Live':''}</button>
+          <select id="enc-status-sel" class="btn btn-secondary btn-sm">
+            ${['planned','active','completed'].map(s=>`<option ${enc.status===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
       </div>
-    </div>
-    <div id="combatant-list">${combatants.length
-      ? combatants.map((c,i) => combatantRow(c, i === _currentTurnIdx % combatants.length)).join('')
-      : `<p style="color:var(--muted);padding:12px 0">No combatants yet — add some or generate an encounter above.</p>`
-    }</div>
-    ${enc.notes ? `<p style="color:var(--muted);font-size:12px;margin-top:10px">${enc.notes}</p>` : ''}
-  `;
+      <div id="combatant-list" class="combatant-list">
+        ${combatants.length
+          ? combatants.map((c,i) => combatantRow(c, i === currentIdx)).join('')
+          : `<div class="empty-state" style="padding:32px 0"><div class="empty-state-icon">⚔</div><div class="empty-state-title">No combatants yet</div><div class="empty-state-sub">Add combatants or generate an encounter above.</div></div>`
+        }
+      </div>
+      ${enc.notes ? `<div class="tracker-notes">${enc.notes}</div>` : ''}
+    </div>`;
 
   document.getElementById('btn-roll-init').addEventListener('click', async () => {
     await api(`/api/encounters/${_activeEncounterId}/roll-initiative`, 'POST');
@@ -384,10 +410,10 @@ async function refreshTracker() {
 
   document.getElementById('btn-add-combatant').addEventListener('click', () => {
     inputModal('Add Combatant', [
-      { id:'name', label:'Name',     placeholder:'e.g. Goblin Archer' },
-      { id:'hp',   label:'Max HP',   type:'number', value:10, min:1 },
-      { id:'ac',   label:'AC',       type:'number', value:12, min:1 },
-      { id:'type', label:'Type',     type:'select', value:'monster',
+      { id:'name', label:'Name',   placeholder:'e.g. Goblin Archer' },
+      { id:'hp',   label:'Max HP', type:'number', value:10, min:1 },
+      { id:'ac',   label:'AC',     type:'number', value:12, min:1 },
+      { id:'type', label:'Type',   type:'select', value:'monster',
         options:[{value:'monster',label:'👹 Monster'},{value:'player',label:'🧙 Player'}] },
     ], async ({ name, hp, ac, type }) => {
       if (!name.trim()) return;
@@ -408,13 +434,12 @@ async function refreshTracker() {
     await refreshTracker();
   });
 
-  // Auto-broadcast if live
   if (_liveBroadcast && combatants.length) {
     api('/api/live/broadcast', 'POST', {
       encounter: {
         name: enc.name,
-        round: Math.floor(_currentTurnIdx / Math.max(1, combatants.length)) + 1,
-        current_idx: _currentTurnIdx % Math.max(1, combatants.length),
+        round,
+        current_idx: currentIdx,
         combatants: combatants.map(c => ({
           name:       c.name,
           hp:         c.hp,
@@ -428,29 +453,36 @@ async function refreshTracker() {
 }
 
 function combatantRow(c, isActive) {
-  const hpPct   = Math.max(0, (c.hp / c.max_hp) * 100);
+  const hpPct    = Math.max(0, Math.min(100, (c.hp / c.max_hp) * 100));
   const hpClass  = hpPct <= 25 ? 'crit-low' : hpPct <= 50 ? 'low' : '';
   const dead     = c.hp <= 0;
+  const isPlayer = c.combatant_type === 'player';
   const conditions = JSON.parse(c.conditions || '[]');
 
   return `<div class="combatant-row ${isActive?'active-turn':''} ${dead?'dead':''}">
-    <div style="min-width:32px;text-align:center;font-size:17px;font-weight:700;color:var(--gold)">${c.initiative||'—'}</div>
-    <div class="combatant-name" style="color:${c.combatant_type==='player'?'var(--accent)':'var(--text)'}">
-      ${c.combatant_type==='player'?'🧙':'👹'} ${c.name}
+    <div class="combatant-init ${isActive?'active':''}">
+      <span class="combatant-init-val">${c.initiative||'—'}</span>
+      <span class="combatant-init-label">INIT</span>
     </div>
-    <div class="combatant-hp">
-      <div style="font-size:12px">${c.hp}/${c.max_hp} HP</div>
-      <div class="hp-bar"><div class="hp-fill ${hpClass}" style="width:${hpPct}%"></div></div>
+    <div class="combatant-type-icon">${isPlayer?'🧙':'👹'}</div>
+    <div class="combatant-main">
+      <div class="combatant-name-row">
+        <span class="combatant-name ${isPlayer?'is-player':''}">${c.name}</span>
+        <div class="conditions-wrap">${conditions.map(cd=>`<span class="condition-tag">${cd}</span>`).join('')}</div>
+      </div>
+      <div class="combatant-hp-row">
+        <span class="combatant-hp-text">${c.hp} / ${c.max_hp} HP</span>
+        <span class="combatant-ac-text">AC ${c.ac}</span>
+        <div class="hp-bar" style="flex:1"><div class="hp-fill ${hpClass}" style="width:${hpPct}%"></div></div>
+      </div>
     </div>
-    <div style="min-width:50px;color:var(--muted);font-size:12px">AC ${c.ac}</div>
-    <div class="conditions-wrap">${conditions.map(cd=>`<span class="condition-tag">${cd}</span>`).join('')}</div>
-    <div style="display:flex;gap:4px;margin-left:auto">
+    <div class="combatant-btns">
       <button class="btn btn-secondary btn-sm" onclick="hpEdit(${c.id},'${c.name.replace(/'/g,"\\'")}',${c.hp},${c.max_hp})">HP</button>
       <button class="btn btn-secondary btn-sm" onclick="initEdit(${c.id},'${c.name.replace(/'/g,"\\'")}',${c.initiative||0})">Init</button>
-      <button class="btn btn-secondary btn-sm" onclick="condEdit(${c.id},'${c.conditions.replace(/'/g,"\\'")}')">Cond</button>
+      <button class="btn btn-secondary btn-sm" onclick="condEdit(${c.id},'${(c.conditions||'[]').replace(/'/g,"\\'")}')">Cond</button>
       <button class="btn btn-danger btn-sm"    onclick="removeCombatant(${_activeEncounterId},${c.id})">✕</button>
     </div>
-    ${c.notes?`<div style="width:100%;font-size:11px;color:var(--muted);padding-top:2px">${c.notes}</div>`:''}
+    ${c.notes?`<div class="combatant-notes">${c.notes}</div>`:''}
   </div>`;
 }
 

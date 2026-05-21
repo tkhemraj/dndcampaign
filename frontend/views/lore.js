@@ -1,18 +1,41 @@
 'use strict';
+
+const _LORE_CATS = [
+  { key:'',         icon:'◈', label:'All'       },
+  { key:'location', icon:'📍', label:'Locations' },
+  { key:'faction',  icon:'⚔', label:'Factions'  },
+  { key:'deity',    icon:'✦', label:'Deities'   },
+  { key:'history',  icon:'📜', label:'History'   },
+  { key:'misc',     icon:'◌', label:'Misc'      },
+];
+
+const _LORE_CAT_COLORS = {
+  location: 'var(--accent)',
+  faction:  'var(--crit)',
+  deity:    '#a070e0',
+  history:  '#c09040',
+  misc:     'var(--muted)',
+};
+
 window.renderLoreView = async function(campaignId) {
   const el = document.getElementById('content');
   el.innerHTML = `
     <div class="view-header">
-      <h1>📖 Lore & Notes</h1>
+      <div>
+        <h1>Lore & Notes</h1>
+        <span class="subtitle">World knowledge, factions & history</span>
+      </div>
       <div class="view-actions">
         <button class="btn btn-purple" id="btn-wm-ref">🌍 Wildemount Ref</button>
         <button class="btn btn-primary" id="btn-new-lore">+ Add Entry</button>
       </div>
     </div>
 
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px" id="lore-tabs">
-      ${[['','All'],['location','Locations'],['faction','Factions'],['deity','Deities'],['history','History'],['misc','Misc']].map(([c,l]) => `
-        <button class="btn btn-sm lore-tab ${c === '' ? 'btn-primary' : 'btn-secondary'}" data-cat="${c}">${l}</button>`).join('')}
+    <div class="filter-pills" id="lore-tabs">
+      ${_LORE_CATS.map(c => `
+        <button class="filter-pill${c.key === '' ? ' active' : ''}" data-cat="${c.key}">
+          <span class="filter-pill-icon">${c.icon}</span> ${c.label}
+        </button>`).join('')}
     </div>
 
     <div id="lore-list"></div>
@@ -27,7 +50,6 @@ window.renderLoreView = async function(campaignId) {
     const entries = await api(`/api/lore/?${params}`);
     const el2 = document.getElementById('lore-list');
 
-    // Filter out session entries from the lore view (they live on the dashboard)
     const visible = entries.filter(e => e.category !== 'session');
 
     if (!visible.length) {
@@ -39,26 +61,28 @@ window.renderLoreView = async function(campaignId) {
       return;
     }
 
-    el2.innerHTML = `<div class="card-grid">${visible.map(e => `
-      <div class="card" onclick="openLoreModal(${e.id})" style="cursor:pointer">
-        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">
-          <strong style="color:var(--accent);flex:1;font-size:14px">${e.title}</strong>
-          <span class="chip" style="flex-shrink:0">${e.category}</span>
-        </div>
-        <p style="color:var(--muted);font-size:12px;line-height:1.5">
-          ${(e.content||'').slice(0,160)}${(e.content?.length||0)>160?'…':''}
-        </p>
-        ${e.tags ? `<div style="margin-top:8px;font-size:11px;color:var(--accent2)">${e.tags}</div>` : ''}
-      </div>`).join('')}</div>`;
+    el2.innerHTML = `<div class="lore-grid">${visible.map(e => {
+      const catColor = _LORE_CAT_COLORS[e.category] || 'var(--muted)';
+      const catIcon  = (_LORE_CATS.find(c => c.key === e.category)||{}).icon || '◌';
+      return `
+        <div class="lore-card" onclick="openLoreModal(${e.id})" style="border-top-color:${catColor}">
+          <div class="lore-card-header">
+            <div class="lore-card-cat-icon" style="color:${catColor}">${catIcon}</div>
+            <div class="lore-card-title">${e.title}</div>
+            <span class="chip lore-cat-chip">${e.category}</span>
+          </div>
+          <p class="lore-card-body">${(e.content||'').slice(0,180)}${(e.content?.length||0)>180?'…':''}</p>
+          ${e.tags ? `<div class="lore-card-tags">${e.tags.split(',').map(t=>`<span class="chip">${t.trim()}</span>`).join('')}</div>` : ''}
+        </div>`;
+    }).join('')}</div>`;
   };
   await loadList();
 
-  document.querySelectorAll('.lore-tab').forEach(btn => {
+  document.querySelectorAll('.filter-pill').forEach(btn => {
     btn.addEventListener('click', async () => {
       filterCat = btn.dataset.cat;
-      document.querySelectorAll('.lore-tab').forEach(b => {
-        b.className = `btn btn-sm lore-tab ${b.dataset.cat === filterCat ? 'btn-primary' : 'btn-secondary'}`;
-      });
+      document.querySelectorAll('.filter-pill').forEach(b =>
+        b.classList.toggle('active', b.dataset.cat === filterCat));
       await loadList();
     });
   });
@@ -87,7 +111,7 @@ window.renderLoreView = async function(campaignId) {
 function openLoreEdit(e, isNew, onSave) {
   const body = document.getElementById('modal-body');
   body.innerHTML = `
-    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:16px">${isNew && !e.id ? 'New Entry' : e.title || 'Entry'}</h2>
+    <h2 class="modal-title">${isNew && !e.id ? 'New Entry' : e.title || 'Entry'}</h2>
     <div class="form-group"><label>Title</label><input id="l-title" value="${e.title||''}"/></div>
     <div class="form-group"><label>Category</label>
       <select id="l-cat">${['location','faction','deity','history','misc'].map(c=>
@@ -100,13 +124,12 @@ function openLoreEdit(e, isNew, onSave) {
     <div class="form-group"><label>Tags (comma-separated)</label>
       <input id="l-tags" value="${e.tags||''}"/>
     </div>
-    <div style="display:flex;gap:8px;margin-top:16px">
+    <div class="modal-actions">
       <button class="btn btn-primary" id="btn-save-l">Save</button>
       ${e.id ? `<button class="btn btn-danger" id="btn-del-l">Delete</button>` : ''}
     </div>
   `;
   openModal();
-
   setTimeout(() => document.getElementById('l-title').focus(), 60);
 
   document.getElementById('btn-save-l').addEventListener('click', async () => {
@@ -137,62 +160,61 @@ function openLoreEdit(e, isNew, onSave) {
 function showWildemountRef(ref) {
   const body = document.getElementById('modal-body');
   body.innerHTML = `
-    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:20px">🌍 Wildemount Reference</h2>
+    <h2 class="modal-title">🌍 Wildemount Reference</h2>
 
-    <div class="section-title">Factions</div>
+    <div class="wm-section-title">Factions</div>
     ${ref.factions.map(f => `
-      <div class="card" style="margin-bottom:8px">
-        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
-          <strong style="color:var(--accent);font-family:'Cinzel',serif">${f.name}</strong>
+      <div class="wm-card">
+        <div class="wm-card-header">
+          <strong class="wm-card-name">${f.name}</strong>
           <span class="chip">${f.region}</span>
           <span class="chip">${f.alignment}</span>
         </div>
-        <p style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5">${f.description}</p>
-        <details>
-          <summary style="font-size:11px;color:var(--accent2);cursor:pointer;user-select:none">Plot hooks (${f.hooks.length})</summary>
-          <ul style="margin:8px 0 0 16px;font-size:12px;color:var(--muted)">
-            ${f.hooks.map(h=>`<li style="margin-bottom:4px">${h}</li>`).join('')}
+        <p class="wm-card-desc">${f.description}</p>
+        <details class="wm-details">
+          <summary>Plot hooks (${f.hooks.length})</summary>
+          <ul class="wm-hooks">
+            ${f.hooks.map(h=>`<li>${h}</li>`).join('')}
           </ul>
         </details>
       </div>`).join('')}
 
-    <div class="section-title" style="margin-top:20px">Regions</div>
+    <div class="wm-section-title">Regions</div>
     ${Object.entries(ref.regions).map(([name, r]) => `
-      <div class="card" style="margin-bottom:8px">
-        <strong style="color:var(--accent);font-family:'Cinzel',serif">${name}</strong>
-        <p style="font-size:12px;color:var(--muted);margin:6px 0 8px;line-height:1.5">${r.description}</p>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
+      <div class="wm-card">
+        <strong class="wm-card-name">${name}</strong>
+        <p class="wm-card-desc">${r.description}</p>
+        <div class="wm-chips">
           ${r.locations.map(l=>`<span class="chip">${l}</span>`).join('')}
         </div>
       </div>`).join('')}
 
-    <div class="section-title" style="margin-top:20px">Deities</div>
-    <div class="card-grid" style="margin-bottom:16px">
+    <div class="wm-section-title">Deities</div>
+    <div class="wm-deity-grid">
       ${ref.deities.map(d => `
-        <div class="card">
-          <div style="font-family:'Cinzel',serif;color:var(--accent);font-weight:600;margin-bottom:4px">${d.name}</div>
-          <div style="display:flex;gap:4px;margin-bottom:6px">
+        <div class="wm-deity-card">
+          <div class="wm-deity-name">${d.name}</div>
+          <div class="wm-chips" style="margin-bottom:6px">
             <span class="chip">${d.domain}</span>
             <span class="chip">${d.alignment}</span>
           </div>
-          <p style="font-size:12px;color:var(--muted);line-height:1.45">${d.description}</p>
+          <p class="wm-card-desc">${d.description}</p>
         </div>`).join('')}
     </div>
 
-    <div class="section-title">Wildemount Subclasses</div>
+    <div class="wm-section-title">Wildemount Subclasses</div>
     ${ref.subclasses.map(s => `
-      <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
-          <strong style="color:var(--accent2)">${s.name}</strong>
+      <div class="wm-subclass">
+        <div class="wm-subclass-header">
+          <strong class="wm-subclass-name">${s.name}</strong>
           <span class="chip">${s.class}</span>
         </div>
-        <p style="font-size:12px;color:var(--muted);line-height:1.45">${s.description}</p>
+        <p class="wm-card-desc">${s.description}</p>
       </div>`).join('')}
 
-    <div class="section-title" style="margin-top:20px">Plot Seeds</div>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      ${ref.plot_seeds.map(s => `
-        <div style="padding:8px 12px;background:var(--surface2);border-radius:var(--radius-sm);border-left:3px solid var(--accent-dim);font-size:12px;color:var(--muted);line-height:1.5">${s}</div>`).join('')}
+    <div class="wm-section-title">Plot Seeds</div>
+    <div class="wm-seeds">
+      ${ref.plot_seeds.map(s => `<div class="wm-seed">${s}</div>`).join('')}
     </div>
   `;
   openModal();

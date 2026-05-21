@@ -1,38 +1,53 @@
 'use strict';
+
+const _Q_DIFF_COLORS = {
+  easy:   'var(--ok)',
+  medium: 'var(--warn)',
+  hard:   '#e07030',
+  deadly: 'var(--crit)',
+};
+
+const _Q_STATUS_ICONS = { active:'⚔', completed:'✓', failed:'✗', abandoned:'◌' };
+
 window.renderQuestsView = async function(campaignId) {
   const el = document.getElementById('content');
   el.innerHTML = `
     <div class="view-header">
-      <h1>📜 Quests</h1>
+      <div>
+        <h1>Quests</h1>
+        <span class="subtitle">Plot hooks, missions & objectives</span>
+      </div>
       <div class="view-actions">
         <button class="btn btn-primary" id="btn-new-q">+ Add Quest</button>
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:16px">
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">
-        <div class="form-group" style="margin-bottom:0"><label>Region</label>
+    <div class="gen-panel">
+      <div class="gen-panel-fields">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Region</label>
           <select id="q-region">
-            <option value="">Any</option>
+            <option value="">Any region</option>
             <option>Western Wynandir</option><option>Xhorhas</option>
             <option>Menagerie Coast</option><option>Greying Wildlands</option><option>Eiselcross</option>
           </select>
         </div>
-        <div class="form-group" style="margin-bottom:0"><label>Faction</label>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Faction</label>
           <select id="q-faction">
-            <option value="">Any</option>
+            <option value="">Any faction</option>
             <option>Dwendalian Empire</option><option>Cerberus Assembly</option>
             <option>Kryn Dynasty</option><option>Cobalt Soul</option>
             <option>The Revelry</option><option>The Myriad</option>
           </select>
         </div>
-        <button class="btn btn-purple" id="btn-do-gen-q">⚙ Generate Hook</button>
       </div>
+      <button class="btn btn-purple gen-panel-btn" id="btn-do-gen-q">⚙ Generate Hook</button>
     </div>
 
-    <div style="display:flex;gap:6px;margin-bottom:16px" id="quest-tabs">
-      ${[['active','Active'],['completed','Completed'],['failed','Failed'],['','All']].map(([s,l]) => `
-        <button class="btn btn-sm quest-tab ${s === 'active' ? 'btn-primary' : 'btn-secondary'}" data-status="${s}">${l}</button>`).join('')}
+    <div class="filter-pills" id="quest-tabs">
+      ${[['active','⚔ Active'],['completed','✓ Completed'],['failed','✗ Failed'],['','All']].map(([s,l]) => `
+        <button class="filter-pill${s === 'active' ? ' active' : ''}" data-status="${s}">${l}</button>`).join('')}
     </div>
 
     <div id="quest-list"></div>
@@ -48,41 +63,44 @@ window.renderQuestsView = async function(campaignId) {
     const el2 = document.getElementById('quest-list');
 
     if (!quests.length) {
-      const label = filterStatus || 'quests';
       el2.innerHTML = `<div class="empty-state">
         <div class="empty-state-icon">📜</div>
-        <div class="empty-state-title">No ${label} quests</div>
+        <div class="empty-state-title">No ${filterStatus || ''} quests</div>
         <div class="empty-state-sub">${filterStatus === 'active'
           ? 'Generate a faction-aware plot hook above, or add one manually.'
-          : `No ${label} quests to show.`}</div>
+          : `No ${filterStatus} quests to show.`}</div>
       </div>`;
       return;
     }
 
-    el2.innerHTML = `<div class="card-grid">${quests.map(q => `
-      <div class="quest-card diff-${q.difficulty}" onclick="openQuestModal(${q.id})">
-        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">
-          <strong style="color:var(--accent);flex:1;font-size:14px;line-height:1.3">${q.title}</strong>
-          <span class="badge badge-${q.status}" style="flex-shrink:0">${q.status}</span>
+    el2.innerHTML = `<div class="quest-list-stack">${quests.map(q => `
+      <div class="quest-item" onclick="openQuestModal(${q.id})">
+        <div class="quest-item-bar" style="background:${_Q_DIFF_COLORS[q.difficulty]||'var(--border)'}"></div>
+        <div class="quest-item-body">
+          <div class="quest-item-header">
+            <span class="quest-item-title">${q.title}</span>
+            <div class="quest-item-badges">
+              <span class="badge badge-${q.status}">${_Q_STATUS_ICONS[q.status]||''} ${q.status}</span>
+              <span class="badge badge-${q.difficulty}">${q.difficulty}</span>
+            </div>
+          </div>
+          <div class="quest-item-chips">
+            ${q.faction ? `<span class="chip">${q.faction}</span>` : ''}
+            ${q.region  ? `<span class="chip">${q.region}</span>`  : ''}
+          </div>
+          ${q.description ? `<p class="quest-item-desc">${q.description.slice(0,200)}${q.description.length>200?'…':''}</p>` : ''}
+          ${q.reward ? `<div class="quest-item-reward">💰 ${q.reward.slice(0,100)}${q.reward.length>100?'…':''}</div>` : ''}
         </div>
-        <p style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
-          ${(q.description||'').slice(0,150)}${(q.description?.length||0)>150?'…':''}
-        </p>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          ${q.faction ? `<span class="chip">${q.faction}</span>` : ''}
-          ${q.region  ? `<span class="chip">${q.region}</span>`  : ''}
-          <span class="badge badge-${q.difficulty}" style="margin-left:auto">${q.difficulty}</span>
-        </div>
+        <div class="quest-item-arrow">→</div>
       </div>`).join('')}</div>`;
   };
   await loadList();
 
-  document.querySelectorAll('.quest-tab').forEach(btn => {
+  document.querySelectorAll('.filter-pill').forEach(btn => {
     btn.addEventListener('click', async () => {
       filterStatus = btn.dataset.status;
-      document.querySelectorAll('.quest-tab').forEach(b => {
-        b.className = `btn btn-sm quest-tab ${b.dataset.status === filterStatus ? 'btn-primary' : 'btn-secondary'}`;
-      });
+      document.querySelectorAll('.filter-pill').forEach(b =>
+        b.classList.toggle('active', b.dataset.status === filterStatus));
       await loadList();
     });
   });
@@ -95,7 +113,7 @@ window.renderQuestsView = async function(campaignId) {
     if (region)     params.set('region', region);
     if (faction)    params.set('faction', faction);
     const btn = document.getElementById('btn-do-gen-q');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Generating…';
     try {
       const q = await api(`/api/quests/generate?${params}`);
       openQuestEdit(q, true, async () => { await loadList(); });
@@ -118,7 +136,7 @@ window.renderQuestsView = async function(campaignId) {
 function openQuestEdit(q, isNew, onSave) {
   const body = document.getElementById('modal-body');
   body.innerHTML = `
-    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:16px">${isNew && !q.id ? 'New Quest' : q.title || 'Quest'}</h2>
+    <h2 class="modal-title">${isNew && !q.id ? 'New Quest' : q.title || 'Quest'}</h2>
     <div class="form-group"><label>Title</label><input id="q-title" value="${q.title||''}"/></div>
     <div class="form-group"><label>Hook / Description</label>
       <textarea id="q-desc" style="min-height:120px">${q.description||''}</textarea>
@@ -137,7 +155,7 @@ function openQuestEdit(q, isNew, onSave) {
     </div>
     <div class="form-group"><label>Reward</label><textarea id="q-reward">${q.reward||''}</textarea></div>
     <div class="form-group"><label>Notes</label><textarea id="q-notes">${q.notes||''}</textarea></div>
-    <div style="display:flex;gap:8px;margin-top:16px">
+    <div class="modal-actions">
       <button class="btn btn-primary" id="btn-save-q">Save</button>
       ${q.id ? `<button class="btn btn-danger" id="btn-del-q">Delete</button>` : ''}
     </div>

@@ -17,94 +17,130 @@ const FEATURE_COLORS = {
   luxon_altar:'#8040ff', betrayer_god_shrine:'#800020',
 };
 
-let _currentMap = null;
+const MAP_TYPES = [
+  { key:'dungeon',    icon:'💀', label:'Dungeon'    },
+  { key:'outdoor',   icon:'🌲', label:'Outdoor'    },
+  { key:'interior',  icon:'🏠', label:'Interior'   },
+  { key:'wildemount',icon:'🗺', label:'Wildemount' },
+];
+
+const MAP_SUBTYPES = {
+  dungeon:    ['generic','cave','temple','ruins_aeor'],
+  outdoor:    ['forest','plains','tundra','badlands','coastal','jungle'],
+  interior:   ['tavern','castle','ship','temple','mansion'],
+  wildemount: ['xhorhas_wastes','aeor_ruins','rosohna_streets','dwendalian_keep',
+               'menagerie_port','savalirwood','eiselcross_tundra','kryn_temple','cerberus_lab','cavern_bazzoxan'],
+};
+
+let _currentMap  = null;
+let _activeType  = 'dungeon';
+let _activeSub   = 'generic';
 
 window.renderMapsView = async function(campaignId) {
   const el = document.getElementById('content');
   el.innerHTML = `
     <div class="view-header">
-      <h1>🗺 Maps</h1>
-      <span class="subtitle">Procedural combat & exploration maps</span>
-    </div>
-
-    <div class="card" style="margin-bottom:16px">
-      <div style="display:grid;grid-template-columns:repeat(5,1fr) auto;gap:12px;align-items:end">
-        <div class="form-group" style="margin-bottom:0">
-          <label>Type</label>
-          <select id="map-type-sel">
-            <option value="dungeon">Dungeon</option>
-            <option value="outdoor">Outdoor</option>
-            <option value="interior">Interior</option>
-            <option value="wildemount">Wildemount</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label>Subtype</label>
-          <select id="map-sub-sel"></select>
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label>Width</label>
-          <input id="map-w" type="number" value="60" min="20" max="100"/>
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label>Height</label>
-          <input id="map-h" type="number" value="40" min="15" max="80"/>
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label>Name</label>
-          <input id="map-name" type="text" value="New Map"/>
-        </div>
-        <button class="btn btn-purple" id="btn-do-gen">⚙ Generate</button>
+      <div>
+        <h1>Maps</h1>
+        <span class="subtitle">Procedural combat & exploration maps</span>
       </div>
     </div>
 
-    <div id="map-canvas-wrap" style="margin-bottom:16px"></div>
+    <div class="map-gen-panel">
+      <div class="map-gen-top">
+        <div class="map-gen-section">
+          <div class="map-gen-label">Map Type</div>
+          <div class="map-type-pills" id="map-type-pills">
+            ${MAP_TYPES.map(t => `
+              <button class="map-type-pill${t.key === _activeType ? ' active' : ''}" data-type="${t.key}">
+                <span class="map-type-pill-icon">${t.icon}</span>
+                <span class="map-type-pill-label">${t.label}</span>
+              </button>`).join('')}
+          </div>
+        </div>
+        <div class="map-gen-section">
+          <div class="map-gen-label">Subtype</div>
+          <div class="map-sub-pills" id="map-sub-pills"></div>
+        </div>
+      </div>
+      <div class="map-gen-bottom">
+        <div class="map-size-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Name</label>
+            <input id="map-name" type="text" value="New Map" style="min-width:160px"/>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Width</label>
+            <input id="map-w" type="number" value="60" min="20" max="100" style="width:80px"/>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Height</label>
+            <input id="map-h" type="number" value="40" min="15" max="80" style="width:80px"/>
+          </div>
+        </div>
+        <button class="btn btn-primary map-gen-btn" id="btn-do-gen">
+          <span class="map-gen-btn-icon">⚙</span> Generate Map
+        </button>
+      </div>
+    </div>
+
+    <div id="map-canvas-wrap" style="margin-bottom:20px"></div>
     <div id="map-list"></div>
   `;
 
-  const subtypes = {
-    dungeon:    ['generic','cave','temple','ruins_aeor'],
-    outdoor:    ['forest','plains','tundra','badlands','coastal','jungle'],
-    interior:   ['tavern','castle','ship','temple','mansion'],
-    wildemount: ['xhorhas_wastes','aeor_ruins','rosohna_streets','dwendalian_keep',
-                 'menagerie_port','savalirwood','eiselcross_tundra','kryn_temple','cerberus_lab','cavern_bazzoxan'],
-  };
+  _renderSubPills();
 
-  const updateSubtypes = () => {
-    const sel  = document.getElementById('map-sub-sel');
-    const type = document.getElementById('map-type-sel').value;
-    sel.innerHTML = subtypes[type].map(s =>
-      `<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('');
-  };
-  updateSubtypes();
-  document.getElementById('map-type-sel').addEventListener('change', updateSubtypes);
+  document.getElementById('map-type-pills').addEventListener('click', e => {
+    const pill = e.target.closest('.map-type-pill');
+    if (!pill) return;
+    _activeType = pill.dataset.type;
+    _activeSub  = MAP_SUBTYPES[_activeType][0];
+    document.querySelectorAll('.map-type-pill').forEach(p => p.classList.toggle('active', p.dataset.type === _activeType));
+    _renderSubPills();
+  });
 
   document.getElementById('btn-do-gen').addEventListener('click', async () => {
-    const type = document.getElementById('map-type-sel').value;
-    const sub  = document.getElementById('map-sub-sel').value;
     const w    = document.getElementById('map-w').value;
     const h    = document.getElementById('map-h').value;
     const name = document.getElementById('map-name').value || 'Map';
     const cid  = campaignId ? `&campaign_id=${campaignId}` : '';
     const btn  = document.getElementById('btn-do-gen');
 
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating…';
     try {
       const res = await api(
-        `/api/maps/generate?map_type=${type}&subtype=${sub}&width=${w}&height=${h}&name=${encodeURIComponent(name)}${cid}`,
+        `/api/maps/generate?map_type=${_activeType}&subtype=${_activeSub}&width=${w}&height=${h}&name=${encodeURIComponent(name)}${cid}`,
         'POST');
       _currentMap = res;
       renderCanvas(res);
       await loadMapList(campaignId);
       document.getElementById('map-canvas-wrap').scrollIntoView({ behavior:'smooth' });
-      toast(`Map generated — ${name}`, 'success');
+      toast(`${name} generated`, 'success');
     } finally {
-      btn.disabled = false; btn.textContent = '⚙ Generate';
+      btn.disabled = false;
+      btn.innerHTML = '<span class="map-gen-btn-icon">⚙</span> Generate Map';
     }
   });
 
   await loadMapList(campaignId);
 };
+
+function _renderSubPills() {
+  const container = document.getElementById('map-sub-pills');
+  if (!container) return;
+  const subs = MAP_SUBTYPES[_activeType] || [];
+  container.innerHTML = subs.map(s => `
+    <button class="map-sub-chip${s === _activeSub ? ' active' : ''}" data-sub="${s}">
+      ${s.replace(/_/g,' ')}
+    </button>`).join('');
+  container.addEventListener('click', e => {
+    const chip = e.target.closest('.map-sub-chip');
+    if (!chip) return;
+    _activeSub = chip.dataset.sub;
+    container.querySelectorAll('.map-sub-chip').forEach(c => c.classList.toggle('active', c.dataset.sub === _activeSub));
+  });
+}
 
 async function loadMapList(campaignId) {
   const url  = campaignId ? `/api/maps/?campaign_id=${campaignId}` : '/api/maps/';
@@ -114,27 +150,35 @@ async function loadMapList(campaignId) {
   if (!maps.length) {
     el.innerHTML = `<div class="empty-state">
       <div class="empty-state-icon">🗺</div>
-      <div class="empty-state-title">No maps generated yet</div>
+      <div class="empty-state-title">No maps yet</div>
       <div class="empty-state-sub">Choose a type and subtype above and hit Generate to create your first map.</div>
     </div>`;
     return;
   }
 
-  el.innerHTML = `<div class="section-title">Saved Maps</div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Name</th><th>Type</th><th>Subtype</th><th>Size</th><th>Created</th><th></th></tr></thead>
-      <tbody>${maps.map(m => `<tr onclick="loadMap(${m.id})">
-        <td><strong>${m.name}</strong></td>
-        <td>${m.map_type}</td>
-        <td>${(m.subtype||'—').replace(/_/g,' ')}</td>
-        <td style="color:var(--muted);font-size:12px">${m.width}×${m.height}</td>
-        <td style="color:var(--muted);font-size:12px">${m.created_at?.slice(0,16)||''}</td>
-        <td style="display:flex;gap:4px" onclick="event.stopPropagation()">
-          <button class="btn btn-secondary btn-sm" onclick="loadMap(${m.id})">View</button>
-          <button class="btn btn-danger btn-sm"    onclick="deleteMap(${m.id})">✕</button>
-        </td>
-      </tr>`).join('')}</tbody>
-    </table></div>`;
+  const TYPE_COLORS = { dungeon:'#5a2a0a', outdoor:'#1a4a10', interior:'#3a2a5a', wildemount:'#1a3a4a' };
+  const TYPE_ICONS  = { dungeon:'💀', outdoor:'🌲', interior:'🏠', wildemount:'🗺' };
+
+  el.innerHTML = `
+    <div class="section-title" style="margin-bottom:14px">Saved Maps <span style="color:var(--muted);font-weight:400;font-size:11px">${maps.length}</span></div>
+    <div class="map-saved-grid">
+      ${maps.map(m => `
+        <div class="map-saved-card" onclick="loadMap(${m.id})">
+          <div class="map-saved-swatch" style="background:${TYPE_COLORS[m.map_type]||'#2a2218'}">
+            <span class="map-saved-icon">${TYPE_ICONS[m.map_type]||'🗺'}</span>
+            <span class="map-saved-size">${m.width}×${m.height}</span>
+          </div>
+          <div class="map-saved-info">
+            <div class="map-saved-name">${m.name}</div>
+            <div class="map-saved-meta">${m.map_type}${m.subtype ? ' / ' + m.subtype.replace(/_/g,' ') : ''}</div>
+            <div class="map-saved-date">${m.created_at?.slice(0,10)||''}</div>
+          </div>
+          <div class="map-saved-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-secondary btn-sm" onclick="loadMap(${m.id})">View</button>
+            <button class="btn btn-danger btn-sm"    onclick="deleteMap(${m.id})">✕</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
 }
 
 window.loadMap = async function(id) {
@@ -159,15 +203,18 @@ function renderCanvas(mapData) {
   const W = data.width, H = data.height;
 
   wrap.innerHTML = `
-    <div style="margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <strong style="font-family:'Cinzel',serif;color:var(--accent)">${mapData.name || 'Map'}</strong>
-      <span style="color:var(--muted);font-size:12px">${data.map_type} / ${(data.subtype||'').replace(/_/g,' ')} · ${W}×${H}</span>
-      <button class="btn btn-secondary btn-sm" id="btn-share-map">👥 Share</button>
-      <button class="btn btn-secondary btn-sm" id="btn-export-map" style="margin-left:auto">⬇ Export PNG</button>
-    </div>
-    <div id="map-container"><canvas id="map-canvas"></canvas></div>
-    <div id="map-legend"></div>
-  `;
+    <div class="map-frame">
+      <div class="map-frame-header">
+        <div class="map-frame-title">${mapData.name || 'Map'}</div>
+        <div class="map-frame-meta">${data.map_type}${data.subtype ? ' / ' + data.subtype.replace(/_/g,' ') : ''} · ${W}×${H}</div>
+        <div class="map-frame-actions">
+          <button class="btn btn-secondary btn-sm" id="btn-share-map">👥 Share</button>
+          <button class="btn btn-secondary btn-sm" id="btn-export-map">⬇ Export PNG</button>
+        </div>
+      </div>
+      <div id="map-container"><canvas id="map-canvas"></canvas></div>
+      <div id="map-legend"></div>
+    </div>`;
 
   const canvas = document.getElementById('map-canvas');
   canvas.width  = W * TILE_SIZE;

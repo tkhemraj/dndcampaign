@@ -7,42 +7,44 @@ window.renderNpcsView = async function(campaignId) {
   const el = document.getElementById('content');
   el.innerHTML = `
     <div class="view-header">
-      <h1>👥 NPCs</h1>
+      <div>
+        <h1>NPCs</h1>
+        <span class="subtitle">Characters, allies & enemies</span>
+      </div>
       <div class="view-actions">
-        <div style="display:flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px">
-          <button class="btn btn-sm" id="btn-view-cards" title="Card view" style="padding:3px 9px;font-size:14px">⊞</button>
-          <button class="btn btn-sm" id="btn-view-table" title="Table view" style="padding:3px 9px;font-size:14px">☰</button>
+        <div class="view-toggle" id="view-toggle">
+          <button class="view-toggle-btn${_npcView === 'cards' ? ' active' : ''}" id="btn-view-cards" title="Card view">⊞</button>
+          <button class="view-toggle-btn${_npcView === 'table' ? ' active' : ''}" id="btn-view-table" title="Table view">☰</button>
         </div>
-        <button class="btn btn-purple" id="btn-gen-npc">⚙ Generate NPC</button>
-        <button class="btn btn-primary" id="btn-new-npc">+ Add</button>
+        <button class="btn btn-primary" id="btn-new-npc">+ Add NPC</button>
       </div>
     </div>
 
-    <div id="gen-controls" class="card" style="margin-bottom:16px">
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">
-        <div class="form-group" style="margin-bottom:0"><label>Region</label>
+    <div class="gen-panel">
+      <div class="gen-panel-fields">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Region</label>
           <select id="npc-region">
-            <option value="">Any</option>
+            <option value="">Any region</option>
             <option>Western Wynandir</option><option>Xhorhas</option>
             <option>Menagerie Coast</option><option>Greying Wildlands</option><option>Eiselcross</option>
           </select>
         </div>
-        <div class="form-group" style="margin-bottom:0"><label>Faction</label>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Faction</label>
           <select id="npc-faction">
-            <option value="">Any</option>
+            <option value="">Any faction</option>
             <option>Dwendalian Empire</option><option>Cerberus Assembly</option>
             <option>Kryn Dynasty</option><option>Cobalt Soul</option>
             <option>The Revelry</option><option>The Myriad</option><option>The Clovis Concord</option>
           </select>
         </div>
-        <button class="btn btn-primary" id="btn-do-gen-npc">Generate</button>
       </div>
+      <button class="btn btn-purple gen-panel-btn" id="btn-do-gen-npc">⚙ Generate NPC</button>
     </div>
 
     <div id="npc-list"></div>
   `;
-
-  _syncViewToggle();
 
   const loadList = async () => {
     const url  = campaignId ? `/api/npcs/?campaign_id=${campaignId}` : '/api/npcs/';
@@ -52,10 +54,16 @@ window.renderNpcsView = async function(campaignId) {
   await loadList();
 
   document.getElementById('btn-view-cards').addEventListener('click', () => {
-    _npcView = 'cards'; _syncViewToggle(); loadList();
+    _npcView = 'cards';
+    document.getElementById('btn-view-cards').classList.add('active');
+    document.getElementById('btn-view-table').classList.remove('active');
+    loadList();
   });
   document.getElementById('btn-view-table').addEventListener('click', () => {
-    _npcView = 'table'; _syncViewToggle(); loadList();
+    _npcView = 'table';
+    document.getElementById('btn-view-table').classList.add('active');
+    document.getElementById('btn-view-cards').classList.remove('active');
+    loadList();
   });
 
   document.getElementById('btn-do-gen-npc').addEventListener('click', async () => {
@@ -66,17 +74,14 @@ window.renderNpcsView = async function(campaignId) {
     if (region)     params.set('region', region);
     if (faction)    params.set('faction', faction);
     const btn = document.getElementById('btn-do-gen-npc');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Generating…';
     try {
       const npc = await api(`/api/npcs/generate?${params}`);
       showNpcModal(npc, true, async () => { await loadList(); });
     } finally {
-      btn.disabled = false; btn.textContent = 'Generate';
+      btn.disabled = false; btn.textContent = '⚙ Generate NPC';
     }
   });
-
-  document.getElementById('btn-gen-npc').addEventListener('click', () =>
-    document.getElementById('btn-do-gen-npc').click());
 
   document.getElementById('btn-new-npc').addEventListener('click', () => {
     showNpcModal({ campaign_id: campaignId, level: 1, status: 'alive' }, true,
@@ -96,14 +101,8 @@ window.renderNpcsView = async function(campaignId) {
   };
 };
 
-function _syncViewToggle() {
-  const cards = document.getElementById('btn-view-cards');
-  const table = document.getElementById('btn-view-table');
-  if (!cards) return;
-  cards.className = `btn btn-sm ${_npcView === 'cards' ? 'btn-primary' : 'btn-secondary'}`;
-  table.className = `btn btn-sm ${_npcView === 'table' ? 'btn-primary' : 'btn-secondary'}`;
-  cards.style.padding = table.style.padding = '3px 9px';
-  cards.style.fontSize = table.style.fontSize = '14px';
+function _getInitials(name) {
+  return (name||'?').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
 }
 
 function _renderNpcCards(npcs) {
@@ -116,29 +115,31 @@ function _renderNpcCards(npcs) {
     </div>`;
     return;
   }
-  el.innerHTML = `<div class="card-grid">${npcs.map(n => `
-    <div class="npc-card status-${n.status}" onclick="viewNpc(${n.id})">
-      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:7px">
-        <div style="flex:1;min-width:0">
-          <div style="font-family:'Cinzel',serif;color:var(--accent);font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.name}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">
-            ${[n.race, n.npc_class, n.level > 1 ? `Level ${n.level}` : ''].filter(Boolean).join(' · ') || 'Unknown'}
-          </div>
+  el.innerHTML = `<div class="npc-card-grid">${npcs.map(n => {
+    const initials = _getInitials(n.name);
+    const sub = [n.race, n.npc_class, n.level > 1 ? `Lv${n.level}` : ''].filter(Boolean).join(' · ') || 'Unknown';
+    return `
+    <div class="npc-card2 status-${n.status}" onclick="viewNpc(${n.id})">
+      <div class="npc-card2-avatar">${initials}</div>
+      <div class="npc-card2-body">
+        <div class="npc-card2-header">
+          <div class="npc-card2-name">${n.name}</div>
+          <div class="nri-dot ${n.status}"></div>
         </div>
-        <span class="badge badge-${n.status}" style="flex-shrink:0">${n.status}</span>
+        <div class="npc-card2-sub">${sub}</div>
+        <div class="npc-card2-chips">
+          ${n.faction ? `<span class="chip">${n.faction}</span>` : ''}
+          ${n.region  ? `<span class="chip">${n.region}</span>`  : ''}
+        </div>
+        ${n.personality ? `<p class="npc-card2-quote">"${n.personality.slice(0,80)}${n.personality.length>80?'…':''}"</p>` : ''}
+        ${n.hp ? `<div class="npc-card2-stats">HP ${n.hp} · AC ${n.ac||'—'} · ${n.alignment||'—'}</div>` : ''}
       </div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:${n.personality ? 6 : 10}px">
-        ${n.faction ? `<span class="chip">${n.faction}</span>` : ''}
-        ${n.region  ? `<span class="chip">${n.region}</span>`  : ''}
-      </div>
-      ${n.hp ? `<div style="font-size:11px;color:var(--muted2);margin-bottom:6px">HP ${n.hp} &middot; AC ${n.ac||'—'} &middot; ${n.alignment||''}</div>` : ''}
-      ${n.personality ? `<p style="font-size:11px;color:var(--muted);font-style:italic;line-height:1.45;margin-bottom:10px">
-        "${n.personality.slice(0,90)}${n.personality.length > 90 ? '…' : ''}"</p>` : ''}
-      <div style="display:flex;gap:4px;margin-top:auto" onclick="event.stopPropagation()">
+      <div class="npc-card2-actions" onclick="event.stopPropagation()">
         <button class="btn btn-secondary btn-sm" onclick="viewNpc(${n.id})">View</button>
         <button class="btn btn-danger btn-sm"    onclick="deleteNpc(${n.id})">✕</button>
       </div>
-    </div>`).join('')}</div>`;
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function _renderNpcTable(npcs) {
@@ -152,11 +153,16 @@ function _renderNpcTable(npcs) {
     return;
   }
   el.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Name</th><th>Race</th><th>Class</th><th>Lvl</th><th>Faction</th><th>Status</th><th></th></tr></thead>
-    <tbody>${npcs.map(n => `<tr onclick="viewNpc(${n.id})">
+    <thead><tr><th></th><th>Name</th><th>Race</th><th>Class</th><th>Lvl</th><th>Faction</th><th>Status</th><th></th></tr></thead>
+    <tbody>${npcs.map(n => `<tr onclick="viewNpc(${n.id})" style="cursor:pointer">
+      <td style="width:32px;padding:8px 4px 8px 12px">
+        <div class="npc-tbl-avatar">${_getInitials(n.name)}</div>
+      </td>
       <td><strong>${n.name}</strong></td>
-      <td>${n.race||'—'}</td><td>${n.npc_class||'—'}</td><td>${n.level}</td>
-      <td>${n.faction ? `<span class="chip">${n.faction}</span>` : '—'}</td>
+      <td style="color:var(--muted)">${n.race||'—'}</td>
+      <td style="color:var(--muted)">${n.npc_class||'—'}</td>
+      <td style="color:var(--muted)">${n.level}</td>
+      <td>${n.faction ? `<span class="chip">${n.faction}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td><span class="badge badge-${n.status}">${n.status}</span></td>
       <td style="display:flex;gap:4px" onclick="event.stopPropagation()">
         <button class="btn btn-secondary btn-sm" onclick="viewNpc(${n.id})">View</button>
@@ -170,7 +176,7 @@ function _renderNpcTable(npcs) {
 function showNpcModal(npc, isNew, onSave) {
   const body = document.getElementById('modal-body');
   body.innerHTML = `
-    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:16px">${isNew && !npc.id ? 'New NPC' : npc.name || 'NPC'}</h2>
+    <h2 class="modal-title">${isNew && !npc.id ? 'New NPC' : npc.name || 'NPC'}</h2>
     ${npc.id ? statBlockHtml(npc) : ''}
     <div class="form-row">
       <div class="form-group"><label>Name</label><input id="f-name" value="${npc.name||''}"/></div>
@@ -196,7 +202,7 @@ function showNpcModal(npc, isNew, onSave) {
     <div class="form-group"><label>Flaw</label><textarea id="f-flaw">${npc.flaw||''}</textarea></div>
     <div class="form-group"><label>Backstory</label><textarea id="f-backstory" style="min-height:100px">${npc.backstory||''}</textarea></div>
     <div class="form-group"><label>Notes</label><textarea id="f-notes">${npc.notes||''}</textarea></div>
-    <div style="display:flex;gap:8px;margin-top:16px">
+    <div class="modal-actions">
       <button class="btn btn-primary" id="btn-save-npc">Save</button>
       ${npc.id ? `<button class="btn btn-danger" id="btn-del-npc">Delete</button>` : ''}
     </div>
@@ -236,7 +242,7 @@ function statBlockHtml(n) {
   if (!n.str_score) return '';
   return `<div class="stat-block" style="margin-bottom:20px">
     <h3>${n.name}${n.race ? ` — ${n.race}` : ''}${n.npc_class ? ` ${n.npc_class}` : ''}${n.level > 1 ? ` ${n.level}` : ''}</h3>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+    <div class="stat-block-meta">
       AC ${n.ac||'—'} &middot; HP ${n.hp||'—'} &middot; ${n.alignment||''}
       ${n.faction ? `&middot; <span class="chip">${n.faction}</span>` : ''}
     </div>
