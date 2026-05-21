@@ -202,25 +202,36 @@ function renderCanvas(mapData) {
   const tiles = data.tiles;
   const W = data.width, H = data.height;
 
+  let _zoom = 1.0;
+  const ZOOM_STEP = 0.25, ZOOM_MIN = 0.25, ZOOM_MAX = 4.0;
+
   wrap.innerHTML = `
     <div class="map-frame">
       <div class="map-frame-header">
         <div class="map-frame-title">${mapData.name || 'Map'}</div>
         <div class="map-frame-meta">${data.map_type}${data.subtype ? ' / ' + data.subtype.replace(/_/g,' ') : ''} · ${W}×${H}</div>
+        <div class="map-zoom-controls">
+          <button class="map-zoom-btn" id="btn-zoom-out" title="Zoom out (scroll down)">−</button>
+          <span class="map-zoom-label" id="map-zoom-label">100%</span>
+          <button class="map-zoom-btn" id="btn-zoom-in"  title="Zoom in (scroll up)">+</button>
+          <button class="map-zoom-btn map-zoom-reset" id="btn-zoom-reset" title="Reset zoom">⤢</button>
+        </div>
         <div class="map-frame-actions">
           <button class="btn btn-secondary btn-sm" id="btn-share-map">👥 Share</button>
           <button class="btn btn-secondary btn-sm" id="btn-export-map">⬇ Export PNG</button>
         </div>
       </div>
-      <div id="map-container"><canvas id="map-canvas"></canvas></div>
+      <div class="map-scroll" id="map-container"><canvas id="map-canvas"></canvas></div>
       <div id="map-legend"></div>
     </div>`;
 
-  const canvas = document.getElementById('map-canvas');
+  const canvas    = document.getElementById('map-canvas');
+  const container = document.getElementById('map-container');
   canvas.width  = W * TILE_SIZE;
   canvas.height = H * TILE_SIZE;
   const ctx = canvas.getContext('2d');
 
+  // ── Draw ──────────────────────────────────────────────────────────────────
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const t = tiles[y][x];
@@ -253,6 +264,43 @@ function renderCanvas(mapData) {
     });
   }
 
+  // ── Zoom helpers ───────────────────────────────────────────────────────────
+  function applyZoom(pivotX, pivotY) {
+    // preserve scroll position relative to pivot point
+    const oldW = canvas.offsetWidth || W * TILE_SIZE;
+    const oldH = canvas.offsetHeight || H * TILE_SIZE;
+    const newW = Math.round(W * TILE_SIZE * _zoom);
+    const newH = Math.round(H * TILE_SIZE * _zoom);
+    const ratioX = (container.scrollLeft + (pivotX || container.clientWidth  / 2)) / oldW;
+    const ratioY = (container.scrollTop  + (pivotY || container.clientHeight / 2)) / oldH;
+    canvas.style.width  = newW + 'px';
+    canvas.style.height = newH + 'px';
+    canvas.style.imageRendering = _zoom >= 2 ? 'pixelated' : 'auto';
+    container.scrollLeft = ratioX * newW - (pivotX || container.clientWidth  / 2);
+    container.scrollTop  = ratioY * newH - (pivotY || container.clientHeight / 2);
+    document.getElementById('map-zoom-label').textContent = Math.round(_zoom * 100) + '%';
+  }
+
+  function zoomBy(delta, pivotX, pivotY) {
+    _zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round((_zoom + delta) * 100) / 100));
+    applyZoom(pivotX, pivotY);
+  }
+
+  applyZoom();
+
+  document.getElementById('btn-zoom-in').addEventListener('click',    () => zoomBy(+ZOOM_STEP));
+  document.getElementById('btn-zoom-out').addEventListener('click',   () => zoomBy(-ZOOM_STEP));
+  document.getElementById('btn-zoom-reset').addEventListener('click', () => { _zoom = 1.0; applyZoom(); });
+
+  container.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = container.getBoundingClientRect();
+    zoomBy(e.deltaY < 0 ? +ZOOM_STEP : -ZOOM_STEP,
+           e.clientX - rect.left,
+           e.clientY - rect.top);
+  }, { passive: false });
+
+  // ── Legend ─────────────────────────────────────────────────────────────────
   const usedTiles = new Set(tiles.flat());
   document.getElementById('map-legend').innerHTML = [...usedTiles].map(t => `
     <div class="legend-item">
@@ -260,6 +308,7 @@ function renderCanvas(mapData) {
       ${TILE_LABELS[t]||t}
     </div>`).join('');
 
+  // ── Actions ────────────────────────────────────────────────────────────────
   document.getElementById('btn-export-map').addEventListener('click', () => {
     const a = document.createElement('a');
     a.download = `${(mapData.name||'map').replace(/\s+/g,'-')}.png`;
@@ -283,8 +332,8 @@ function renderCanvas(mapData) {
 
   canvas.addEventListener('mousemove', e => {
     const rect = canvas.getBoundingClientRect();
-    const tx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
-    const ty = Math.floor((e.clientY - rect.top)  / TILE_SIZE);
+    const tx = Math.floor((e.clientX - rect.left) / (TILE_SIZE * _zoom));
+    const ty = Math.floor((e.clientY - rect.top)  / (TILE_SIZE * _zoom));
     if (tx >= 0 && tx < W && ty >= 0 && ty < H)
       canvas.title = `(${tx},${ty}) ${TILE_LABELS[tiles[ty][tx]]||tiles[ty][tx]}`;
   });

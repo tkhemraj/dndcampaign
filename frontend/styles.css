@@ -2133,6 +2133,54 @@ tbody tr:last-child td { border-bottom: none; }
   margin-left: auto;
 }
 
+.map-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.map-zoom-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 0 5px;
+  line-height: 1.6;
+  border-radius: 4px;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.map-zoom-btn:hover { color: var(--accent); background: var(--surface2); }
+
+.map-zoom-reset { font-size: 13px; }
+
+.map-zoom-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-scroll {
+  overflow: auto;
+  max-height: 620px;
+  background: #050403;
+  cursor: crosshair;
+  -webkit-overflow-scrolling: touch;
+}
+
+.map-scroll canvas {
+  display: block;
+}
+
 .map-saved-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

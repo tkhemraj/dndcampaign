@@ -553,10 +553,24 @@ function drawMapCanvas(mapData) {
   const pal = _pal(theme);
   if (!mapData.tokens) mapData.tokens = [];
 
+  // ── Title + zoom controls row ──────────────────────────────────────────────
+  let _zoom = 1.0;
+  const ZOOM_STEP = 0.25, ZOOM_MIN = 0.25, ZOOM_MAX = 4.0;
+
+  const titleRow = document.createElement('div');
+  titleRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:6px;';
+
   const titleEl = document.createElement('div');
   titleEl.className = 'map-title';
+  titleEl.style.flex = '1';
   titleEl.textContent = mapData.title;
-  wrap.appendChild(titleEl);
+  titleRow.appendChild(titleEl);
+
+  const zoomBar = document.createElement('div');
+  zoomBar.style.cssText = 'display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px 6px;';
+  zoomBar.innerHTML = `<button class="map-zoom-btn" id="mzout" title="Zoom out">−</button><span class="map-zoom-label" id="mzlbl">100%</span><button class="map-zoom-btn" id="mzin" title="Zoom in">+</button><button class="map-zoom-btn map-zoom-reset" id="mzrst" title="Reset">⤢</button>`;
+  titleRow.appendChild(zoomBar);
+  wrap.appendChild(titleRow);
 
   const scroll = document.createElement('div');
   scroll.style.cssText = `overflow:auto;max-height:560px;border-radius:4px;position:relative;background:${pal.void};`;
@@ -580,6 +594,35 @@ function drawMapCanvas(mapData) {
   fogCv.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
   scroll.appendChild(fogCv);
   _fogCtx = fogCv.getContext('2d');
+
+  function _applyZoom(pivotX, pivotY) {
+    const newW = Math.round(W*TS*_zoom), newH = Math.round(H*TS*_zoom);
+    const oldW = canvas.offsetWidth || W*TS;
+    const oldH = canvas.offsetHeight || H*TS;
+    const rx = (scroll.scrollLeft + (pivotX ?? scroll.clientWidth/2)) / oldW;
+    const ry = (scroll.scrollTop  + (pivotY ?? scroll.clientHeight/2)) / oldH;
+    [canvas, ovCanvas, fogCv].forEach(c => {
+      c.style.width = newW+'px'; c.style.height = newH+'px';
+    });
+    canvas.style.imageRendering = ovCanvas.style.imageRendering = _zoom >= 2 ? 'pixelated' : 'auto';
+    scroll.scrollLeft = rx*newW - (pivotX ?? scroll.clientWidth/2);
+    scroll.scrollTop  = ry*newH - (pivotY ?? scroll.clientHeight/2);
+    document.getElementById('mzlbl').textContent = Math.round(_zoom*100)+'%';
+  }
+
+  function _zoomBy(delta, pivotX, pivotY) {
+    _zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round((_zoom+delta)*100)/100));
+    _applyZoom(pivotX, pivotY);
+  }
+
+  document.getElementById('mzin').addEventListener('click', () => _zoomBy(+ZOOM_STEP));
+  document.getElementById('mzout').addEventListener('click', () => _zoomBy(-ZOOM_STEP));
+  document.getElementById('mzrst').addEventListener('click', () => { _zoom=1.0; _applyZoom(); });
+  scroll.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = scroll.getBoundingClientRect();
+    _zoomBy(e.deltaY<0 ? +ZOOM_STEP : -ZOOM_STEP, e.clientX-r.left, e.clientY-r.top);
+  }, {passive:false});
 
   const ctxMenu = document.createElement('div');
   ctxMenu.id = 'map-ctx-menu';
@@ -721,13 +764,16 @@ function drawMapCanvas(mapData) {
   let _drag=null, _fogPaint=false;
   function cvXY(e){
     const rc=ovCanvas.getBoundingClientRect();
-    const px=e.clientX-rc.left, py=e.clientY-rc.top;
+    // scale from screen-space back to canvas-space
+    const sx=ovCanvas.width/rc.width;
+    const px=(e.clientX-rc.left)*sx, py=(e.clientY-rc.top)*sx;
     return {px,py,tx:Math.floor(px/TS),ty:Math.floor(py/TS)};
   }
   function touchXY(e){
     const t=e.touches[0]||e.changedTouches[0];
     const rc=ovCanvas.getBoundingClientRect();
-    const px=t.clientX-rc.left, py=t.clientY-rc.top;
+    const sx=ovCanvas.width/rc.width;
+    const px=(t.clientX-rc.left)*sx, py=(t.clientY-rc.top)*sx;
     return {px,py,tx:Math.floor(px/TS),ty:Math.floor(py/TS)};
   }
 
