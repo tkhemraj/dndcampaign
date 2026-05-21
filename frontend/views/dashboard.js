@@ -1,32 +1,58 @@
 'use strict';
 
+const _DIFF_COLORS = {
+  easy:   'var(--ok)',
+  medium: 'var(--warn)',
+  hard:   '#e07030',
+  deadly: 'var(--crit)',
+};
+
 window.renderDashboardView = async function(campaignId) {
   const el = document.getElementById('content');
 
+  // ── No campaign selected: splash screen ──────────────────────────────────
   if (!campaignId) {
     el.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:70vh;gap:0;text-align:center">
-        <div style="font-size:44px;margin-bottom:16px;opacity:0.6">⚔</div>
-        <h1 style="font-family:'Cinzel Decorative',serif;font-size:22px;color:var(--accent);letter-spacing:0.04em;margin-bottom:6px">D&D Campaign Generator</h1>
-        <p style="color:var(--muted);font-size:13px;margin-bottom:32px;max-width:380px;line-height:1.6">
-          Procedural maps · NPC briefs · Quest hooks<br>
-          Encounter builder · Live synthesised music
-        </p>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:32px;max-width:400px;width:100%">
-          ${[['🗺','Maps'],['👥','NPCs'],['📜','Quests'],['⚔','Encounters'],['📖','Lore'],['🎵','Music']].map(([icon,label])=>`
-            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 8px;text-align:center">
-              <div style="font-size:20px;margin-bottom:4px">${icon}</div>
-              <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">${label}</div>
-            </div>`).join('')}
+      <div class="splash">
+        <div class="splash-inner">
+          <div class="splash-badge">⚔</div>
+          <h1 class="splash-title">D&D Campaign<br>Generator</h1>
+          <p class="splash-tagline">
+            Everything a Dungeon Master needs — procedurally generated,<br>
+            locally run, zero subscriptions.
+          </p>
+
+          <div class="splash-features">
+            ${[
+              ['🗺', 'Procedural Maps',     'Dungeons, wilderness & towns'],
+              ['👥', 'Rich NPCs',            'Full backstory, secrets & stats'],
+              ['📜', 'Quest Hooks',          'Three-act structures with twists'],
+              ['⚔',  'Encounter Builder',   'Tactical combat with XP budgets'],
+              ['📖', 'Wildemount Lore',      'Factions, deities & locations'],
+              ['🎵', 'Live Music',           'Synthesised scores, no files'],
+            ].map(([icon, name, desc]) => `
+              <div class="splash-feat">
+                <div class="splash-feat-icon">${icon}</div>
+                <div class="splash-feat-name">${name}</div>
+                <div class="splash-feat-desc">${desc}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <button class="btn btn-primary splash-cta" id="btn-splash-new">
+            + Create Your First Campaign
+          </button>
+          <p class="splash-footer">No internet required · No external APIs · No subscriptions</p>
         </div>
-        <button class="btn btn-primary" style="padding:10px 28px;font-size:14px" id="btn-splash-new">+ Create Campaign</button>
-        <p style="color:var(--muted2);font-size:11px;margin-top:14px">All content generated locally · No external APIs · No subscriptions</p>
       </div>`;
     document.getElementById('btn-splash-new').addEventListener('click', showNewCampaignModal);
     return;
   }
 
-  // ── Fetch all data in parallel ─────────────────────────────────────────────
+  // ── Loading placeholder ───────────────────────────────────────────────────
+  el.innerHTML = `<div class="loading-overlay"><div class="spinner spinner-lg"></div></div>`;
+
+  // ── Fetch all data in parallel ────────────────────────────────────────────
   const [campaign, npcs, quests, encounters, maps, sessions] = await Promise.all([
     api(`/api/campaigns/${campaignId}`),
     api(`/api/npcs/?campaign_id=${campaignId}`),
@@ -36,33 +62,49 @@ window.renderDashboardView = async function(campaignId) {
     api(`/api/lore/?campaign_id=${campaignId}&category=session`),
   ]);
 
-  const sortedSessions = sessions.sort((a,b) => b.created_at.localeCompare(a.created_at));
-  const activeQuests   = quests.filter(q => q.status === 'active');
-  const aliveNpcs      = npcs.filter(n => n.status === 'alive');
-  const lastSession    = sortedSessions[0];
+  const sortedSessions  = sessions.sort((a,b) => b.created_at.localeCompare(a.created_at));
+  const activeQuests    = quests.filter(q => q.status === 'active');
+  const aliveNpcs       = npcs.filter(n => n.status === 'alive');
+  const lastSession     = sortedSessions[0];
+  const activeEncounter = encounters.find(e => e.status === 'active');
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   el.innerHTML = `
+
     <div class="view-header">
       <div>
         <h1>${campaign.name}</h1>
         <span class="subtitle">
-          ${campaign.setting} · Started ${campaign.created_at?.slice(0,10)}
-          ${lastSession ? ` · Last session ${lastSession.created_at.slice(0,10)}` : ''}
+          ${campaign.setting}${campaign.created_at ? ` · Started ${campaign.created_at.slice(0,10)}` : ''}${lastSession ? ` · Last session ${lastSession.created_at.slice(0,10)}` : ''}
         </span>
       </div>
       <div class="view-actions">
-        <button class="btn btn-secondary btn-sm" id="btn-edit-campaign">Edit</button>
+        <button class="btn btn-secondary btn-sm" id="btn-edit-campaign">⚙ Edit</button>
       </div>
     </div>
-    ${campaign.description ? `<p style="color:var(--muted);margin-bottom:20px;font-size:13px;line-height:1.55">${campaign.description}</p>` : ''}
 
-    <!-- Stat cards -->
+    ${campaign.description ? `
+      <p class="dash-desc">${campaign.description}</p>
+    ` : ''}
+
+    ${activeEncounter ? `
+      <div class="dash-combat-alert" onclick="navigate('encounters')">
+        <span class="dash-combat-pulse"></span>
+        <span style="font-size:20px">⚔</span>
+        <div style="flex:1">
+          <div class="dash-combat-title">Active Encounter — ${activeEncounter.name}</div>
+          <div class="dash-combat-sub">Combat is in progress · Click to manage initiative</div>
+        </div>
+        <span class="dash-combat-arrow">→</span>
+      </div>
+    ` : ''}
+
+    <!-- Summary stat cards -->
     <div class="summary-grid">
       <div class="summary-card" style="border-top-color:var(--ok)">
         <div class="summary-icon">👥</div>
         <div class="summary-label">NPCs</div>
-        <div class="summary-val">${npcs.length}</div>
+        <div class="summary-val" style="color:var(--ok)">${npcs.length}</div>
         <div class="summary-sub">${aliveNpcs.length} alive · ${npcs.length - aliveNpcs.length} dead</div>
       </div>
       <div class="summary-card" style="border-top-color:var(--accent)">
@@ -74,125 +116,137 @@ window.renderDashboardView = async function(campaignId) {
       <div class="summary-card" style="border-top-color:var(--crit)">
         <div class="summary-icon">⚔</div>
         <div class="summary-label">Encounters</div>
-        <div class="summary-val">${encounters.length}</div>
+        <div class="summary-val" style="color:var(--crit)">${encounters.length}</div>
         <div class="summary-sub">${encounters.filter(e=>e.status==='completed').length} completed</div>
       </div>
       <div class="summary-card" style="border-top-color:var(--accent2)">
         <div class="summary-icon">📓</div>
         <div class="summary-label">Sessions</div>
-        <div class="summary-val">${sortedSessions.length}</div>
+        <div class="summary-val" style="color:var(--accent2)">${sortedSessions.length}</div>
         <div class="summary-sub">${maps.length} map${maps.length !== 1 ? 's' : ''} generated</div>
       </div>
     </div>
 
-    <!-- Quick actions -->
-    <div class="section-title">Jump to</div>
-    <div class="quick-actions" style="margin-bottom:28px">
-      <button class="quick-btn" onclick="navigate('npcs')">
-        <div class="quick-btn-icon">👥</div>
-        <div class="quick-btn-label">NPCs</div>
-      </button>
-      <button class="quick-btn" onclick="navigate('quests')">
-        <div class="quick-btn-icon">📜</div>
-        <div class="quick-btn-label">Quests</div>
-      </button>
-      <button class="quick-btn" onclick="navigate('encounters')">
-        <div class="quick-btn-icon">⚔</div>
-        <div class="quick-btn-label">Encounters</div>
-      </button>
-      <button class="quick-btn" onclick="navigate('maps')">
-        <div class="quick-btn-icon">🗺</div>
-        <div class="quick-btn-label">Maps</div>
-      </button>
-      <button class="quick-btn" onclick="navigate('lore')">
-        <div class="quick-btn-icon">📖</div>
-        <div class="quick-btn-label">Lore</div>
-      </button>
-      <button class="quick-btn" onclick="navigate('music')">
-        <div class="quick-btn-icon">🎵</div>
-        <div class="quick-btn-label">Music</div>
-      </button>
-      <button class="quick-btn" id="btn-log-session-quick">
-        <div class="quick-btn-icon">📓</div>
-        <div class="quick-btn-label">Log Session</div>
-      </button>
+    <!-- Quick nav strip -->
+    <div class="dash-nav-strip">
+      <button class="dns-btn" onclick="navigate('maps')">      <span>🗺</span> Maps</button>
+      <button class="dns-btn" onclick="navigate('npcs')">      <span>👥</span> NPCs</button>
+      <button class="dns-btn" onclick="navigate('quests')">    <span>📜</span> Quests</button>
+      <button class="dns-btn" onclick="navigate('encounters')"> <span>⚔</span> Encounters</button>
+      <button class="dns-btn" onclick="navigate('lore')">      <span>📖</span> Lore</button>
+      <button class="dns-btn" onclick="navigate('music')">     <span>🎵</span> Music</button>
+      <button class="dns-btn dns-btn-accent" id="btn-log-session-strip"><span>📓</span> Log Session</button>
     </div>
 
-    <!-- Active quests -->
-    <div class="section-title">Active Quests</div>
-    ${activeQuests.length
-      ? activeQuests.slice(0,4).map(q=>`
-          <div class="quest-card diff-${q.difficulty}" onclick="navigate('quests')" style="margin-bottom:8px">
-            <div style="display:flex;align-items:flex-start;gap:10px">
-              <div style="flex:1">
-                <strong style="color:var(--accent)">${q.title}</strong>
-                ${q.faction ? `<span class="chip" style="margin-left:8px">${q.faction}</span>` : ''}
-                <p style="color:var(--muted);font-size:12px;margin-top:5px;line-height:1.45">
-                  ${(q.description||'').slice(0,160)}${(q.description?.length||0)>160?'…':''}
-                </p>
-              </div>
-              <span class="badge badge-${q.difficulty}" style="flex-shrink:0">${q.difficulty}</span>
+    <!-- Two-column main layout -->
+    <div class="dash-layout">
+
+      <!-- Left: quests + sessions -->
+      <div class="dash-main">
+
+        <div class="section-title">
+          Active Quests
+          ${activeQuests.length ? `<span style="color:var(--accent);font-size:11px;margin-left:2px">${activeQuests.length}</span>` : ''}
+        </div>
+
+        ${activeQuests.length ? `
+          <div class="dash-quests">
+            ${activeQuests.slice(0,5).map(q => `
+              <div class="dash-qi" onclick="navigate('quests')">
+                <div class="dash-qi-bar" style="background:${_DIFF_COLORS[q.difficulty]||'var(--border)'}"></div>
+                <div class="dash-qi-body">
+                  <div class="dash-qi-header">
+                    <span class="dash-qi-title">${q.title}</span>
+                    <span class="badge badge-${q.difficulty}">${q.difficulty}</span>
+                  </div>
+                  ${q.faction ? `<span class="chip" style="margin:2px 0 4px;display:inline-block">${q.faction}</span>` : ''}
+                  ${q.description ? `<p class="dash-qi-desc">${q.description.slice(0,160)}${q.description.length>160?'…':''}</p>` : ''}
+                </div>
+              </div>`).join('')}
+            ${activeQuests.length > 5 ? `
+              <div class="dash-more" onclick="navigate('quests')">+ ${activeQuests.length - 5} more quests →</div>
+            ` : ''}
+          </div>
+        ` : `
+          <p class="dash-empty-row">
+            No active quests.
+            <span class="dash-empty-link" onclick="navigate('quests')">Generate some →</span>
+          </p>
+        `}
+
+        <div class="section-title" style="margin-top:28px">
+          Session Journal
+          <button class="btn btn-secondary btn-sm" id="btn-log-session-inline" style="margin-left:6px;font-size:11px">+ Log</button>
+        </div>
+
+        ${sortedSessions.length ? `
+          <div class="session-timeline">
+            ${sortedSessions.slice(0,4).map(s => `
+              <div class="session-node">
+                <div class="session-node-content">
+                  <div class="session-node-header">
+                    <span class="session-node-date">${s.created_at?.slice(0,10)}</span>
+                    <span class="session-node-title">${s.title}</span>
+                  </div>
+                  ${s.content ? `<p class="session-node-text">${s.content.slice(0,200)}${s.content.length>200?'…':''}</p>` : ''}
+                </div>
+              </div>`).join('')}
+            ${sortedSessions.length > 4 ? `
+              <div class="dash-more" onclick="navigate('lore')">+ ${sortedSessions.length - 4} more sessions →</div>
+            ` : ''}
+          </div>
+        ` : `
+          <p class="dash-empty-row">
+            No sessions logged yet.
+            <span class="dash-empty-link" id="btn-log-session-empty">Log your first →</span>
+          </p>
+        `}
+
+      </div><!-- /.dash-main -->
+
+      <!-- Right: NPC panel -->
+      <div class="dash-panel">
+        <div class="dash-panel-header">
+          <span>NPCs</span>
+          <span onclick="navigate('npcs')" style="cursor:pointer;color:var(--accent);font-size:10px;font-weight:600;letter-spacing:0">View all →</span>
+        </div>
+        <div class="dash-panel-body">
+          ${npcs.length ? npcs.slice(0,10).map(n => {
+            const initials = n.name.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+            const meta = [n.race, n.npc_class, n.level > 1 ? `Lvl ${n.level}` : ''].filter(Boolean).join(' · ');
+            return `
+              <div class="npc-roster-item status-${n.status}" onclick="navigate('npcs')">
+                <div class="nri-avatar">${initials}</div>
+                <div class="nri-info">
+                  <div class="nri-name">${n.name}</div>
+                  <div class="nri-meta">${meta || '—'}${n.faction ? ` · ${n.faction}` : ''}</div>
+                </div>
+                <div class="nri-dot ${n.status}"></div>
+              </div>`;
+          }).join('') : `
+            <div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">
+              No NPCs yet.<br>
+              <span style="color:var(--accent);cursor:pointer" onclick="navigate('npcs')">Generate some →</span>
             </div>
-          </div>`).join('')
-      : `<div style="color:var(--muted);font-size:13px;padding:6px 0 16px">
-           No active quests. <span style="cursor:pointer;color:var(--accent);text-decoration:underline" onclick="navigate('quests')">Generate some →</span>
-         </div>`}
+          `}
+          ${npcs.length > 10 ? `<div class="dash-more" style="padding:6px 4px" onclick="navigate('npcs')">+ ${npcs.length-10} more →</div>` : ''}
+        </div>
+      </div>
 
-    <!-- Session journal -->
-    <div class="section-title" style="margin-top:28px">
-      Session Journal
-      <button class="btn btn-secondary btn-sm" id="btn-log-session-inline" style="margin-left:8px;font-size:11px">+ Log Session</button>
-    </div>
-    <div id="sessions-list">
-      ${sortedSessions.length
-        ? sortedSessions.slice(0,3).map(s=>`
-            <div class="session-entry">
-              <div class="session-date">${s.created_at?.slice(0,10)} &middot; ${s.title}</div>
-              <div class="session-summary">${(s.content||'<em>No notes.</em>').slice(0,280)}${(s.content?.length||0)>280?'…':''}</div>
-            </div>`).join('')
-        : `<div style="color:var(--muted);font-size:13px;padding:6px 0">
-             No sessions logged yet.
-             <span style="cursor:pointer;color:var(--accent);text-decoration:underline" id="btn-log-session-empty">Log your first session →</span>
-           </div>`}
-    </div>
-
-    <!-- Recent NPCs -->
-    <div class="section-title" style="margin-top:28px">Recent NPCs</div>
-    ${npcs.length
-      ? `<div class="card-grid">
-           ${npcs.slice(0,6).map(n=>`
-             <div class="npc-card status-${n.status}" onclick="navigate('npcs')">
-               <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                 <strong style="color:var(--accent);flex:1">${n.name}</strong>
-                 <span class="badge badge-${n.status}">${n.status}</span>
-               </div>
-               <div style="font-size:12px;color:var(--muted)">
-                 ${[n.race, n.npc_class, n.level > 1 ? `Lvl ${n.level}` : ''].filter(Boolean).join(' · ')||'—'}
-               </div>
-               ${n.faction ? `<span class="chip" style="margin-top:6px;display:inline-block">${n.faction}</span>` : ''}
-               ${n.personality ? `<p style="font-size:11px;color:var(--muted);margin-top:7px;font-style:italic;line-height:1.4">
-                 ${n.personality.slice(0,90)}${n.personality.length>90?'…':''}</p>` : ''}
-             </div>`).join('')}
-         </div>`
-      : `<div style="color:var(--muted);font-size:13px;padding:6px 0">
-           No NPCs yet. <span style="cursor:pointer;color:var(--accent);text-decoration:underline" onclick="navigate('npcs')">Generate some →</span>
-         </div>`}
+    </div><!-- /.dash-layout -->
   `;
 
   // ── Wire buttons ───────────────────────────────────────────────────────────
-  document.getElementById('btn-edit-campaign').addEventListener('click',
-    () => showNewCampaignModal(campaign));
+  document.getElementById('btn-edit-campaign').addEventListener('click', () => showNewCampaignModal(campaign));
 
-  const openLogSession = () => _showLogSessionModal(campaignId, sortedSessions.length, () => {
-    renderDashboardView(campaignId);
-  });
+  const openLogSession = () => _showLogSessionModal(campaignId, sortedSessions.length, () => renderDashboardView(campaignId));
 
-  document.getElementById('btn-log-session-quick').addEventListener('click', openLogSession);
+  document.getElementById('btn-log-session-strip').addEventListener('click', openLogSession);
   document.getElementById('btn-log-session-inline').addEventListener('click', openLogSession);
   document.getElementById('btn-log-session-empty')?.addEventListener('click', openLogSession);
 };
 
-// ── Session log modal ──────────────────────────────────────────────────────────
+// ── Session log modal ─────────────────────────────────────────────────────────
 function _showLogSessionModal(campaignId, existingCount, onSave) {
   const n = existingCount + 1;
   const body = document.getElementById('modal-body');

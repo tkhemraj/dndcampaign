@@ -81,26 +81,34 @@ function buildSidebar() {
   ).join('');
 
   sidebar.innerHTML=`
-    <div class="sidebar-top">
-      <div class="sidebar-brand">⚔ DM Toolkit</div>
+    <div id="logo">
+      <div id="logo-emblem">⚔</div>
+      <div id="logo-wordmark">
+        <span id="logo-name">DM Toolkit</span>
+        <span id="logo-sub">Wildemount Edition</span>
+      </div>
+    </div>
+    <div id="sidebar-body">
       ${Object.keys(STATE.campaigns).length ? `
-        <div class="camp-selector-wrap">
+        <div class="sb-section-label">Campaign</div>
+        <div style="padding:4px 10px 8px">
           <select id="camp-select" class="camp-select">${campOptions}</select>
         </div>
       ` : ''}
+      <div class="sb-section-label" style="margin-top:4px">Navigate</div>
+      <nav class="sidebar-nav">
+        <a class="nav-item ${_currentView==='dashboard'?'active':''}" data-view="dashboard" onclick="navigate('dashboard')"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span></a>
+        <a class="nav-item ${_currentView==='maps'?'active':''}" data-view="maps" onclick="navigate('maps')"><span class="nav-icon">🗺</span><span class="nav-label">Maps</span></a>
+        <a class="nav-item ${_currentView==='music'?'active':''}" data-view="music" onclick="navigate('music')"><span class="nav-icon">🎵</span><span class="nav-label">Music</span></a>
+        <a class="nav-item ${_currentView==='npcs'?'active':''}" data-view="npcs" onclick="navigate('npcs')"><span class="nav-icon">🧙</span><span class="nav-label">NPCs</span></a>
+        <a class="nav-item ${_currentView==='encounters'?'active':''}" data-view="encounters" onclick="navigate('encounters')"><span class="nav-icon">⚔</span><span class="nav-label">Encounters</span></a>
+        ${camp&&camp.activeCombat ? `<a class="nav-item nav-combat ${_currentView==='combat'?'active':''}" data-view="combat" onclick="navigate('combat')"><span class="nav-icon">🩸</span><span class="nav-label">Live Combat</span></a>` : ''}
+        <a class="nav-item ${_currentView==='quests'?'active':''}" data-view="quests" onclick="navigate('quests')"><span class="nav-icon">📜</span><span class="nav-label">Quests</span></a>
+        <a class="nav-item ${_currentView==='lore'?'active':''}" data-view="lore" onclick="navigate('lore')"><span class="nav-icon">📖</span><span class="nav-label">Lore</span></a>
+        <a class="nav-item ${_currentView==='spells'?'active':''}" data-view="spells" onclick="navigate('spells')"><span class="nav-icon">✨</span><span class="nav-label">Spells</span></a>
+        <a class="nav-item ${_currentView==='rules'?'active':''}" data-view="rules" onclick="navigate('rules')"><span class="nav-icon">📋</span><span class="nav-label">Rules</span></a>
+      </nav>
     </div>
-    <nav class="sidebar-nav">
-      <a class="nav-item ${_currentView==='dashboard'?'active':''}" data-view="dashboard" onclick="navigate('dashboard')">🏠 Dashboard</a>
-      <a class="nav-item ${_currentView==='maps'?'active':''}" data-view="maps" onclick="navigate('maps')">🗺 Maps</a>
-      <a class="nav-item ${_currentView==='music'?'active':''}" data-view="music" onclick="navigate('music')">🎵 Music</a>
-      <a class="nav-item ${_currentView==='npcs'?'active':''}" data-view="npcs" onclick="navigate('npcs')">🧙 NPCs</a>
-      <a class="nav-item ${_currentView==='encounters'?'active':''}" data-view="encounters" onclick="navigate('encounters')">⚔ Encounters</a>
-      ${camp&&camp.activeCombat ? `<a class="nav-item nav-combat ${_currentView==='combat'?'active':''}" data-view="combat" onclick="navigate('combat')">🩸 Live Combat</a>` : ''}
-      <a class="nav-item ${_currentView==='quests'?'active':''}" data-view="quests" onclick="navigate('quests')">📜 Quests</a>
-      <a class="nav-item ${_currentView==='lore'?'active':''}" data-view="lore" onclick="navigate('lore')">📖 Lore</a>
-      <a class="nav-item ${_currentView==='spells'?'active':''}" data-view="spells" onclick="navigate('spells')">✨ Spells</a>
-      <a class="nav-item ${_currentView==='rules'?'active':''}" data-view="rules" onclick="navigate('rules')">📋 Rules</a>
-    </nav>
     <div class="sidebar-footer">
       <div id="music-mini"></div>
       <button class="btn-new-camp" onclick="showNewCampaignModal()">+ New Campaign</button>

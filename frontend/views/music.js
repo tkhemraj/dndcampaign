@@ -179,6 +179,7 @@ async function playMood(moodKey) {
   // Update mini player in sidebar
   document.getElementById('music-mini-label').textContent = `♪ ${mood.name}`;
   document.getElementById('btn-music-toggle').textContent = '⏹';
+  document.getElementById('music-mini').classList.add('playing');
 }
 
 function setVolume(db) {
@@ -218,6 +219,7 @@ window.renderMusicView = function() {
         stopAll(); _activeMood = null;
         document.getElementById('music-mini-label').textContent = '♪ —';
         document.getElementById('btn-music-toggle').textContent = '▶';
+        document.getElementById('music-mini').classList.remove('playing');
         document.querySelectorAll('.mood-card').forEach(c => c.classList.remove('active'));
       } else {
         await playMood(key);
@@ -238,6 +240,7 @@ window.renderMusicView = function() {
     stopAll(); _activeMood = null;
     document.getElementById('music-mini-label').textContent = '♪ —';
     document.getElementById('btn-music-toggle').textContent = '▶';
+    document.getElementById('music-mini').classList.remove('playing');
     document.querySelectorAll('.mood-card').forEach(c => c.classList.remove('active'));
   });
 };
@@ -248,6 +251,7 @@ document.getElementById('btn-music-toggle').addEventListener('click', async () =
     stopAll(); _activeMood = null;
     document.getElementById('music-mini-label').textContent = '♪ —';
     document.getElementById('btn-music-toggle').textContent = '▶';
+    document.getElementById('music-mini').classList.remove('playing');
   } else if (_activeMood) {
     await playMood(_activeMood);
   }

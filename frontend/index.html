@@ -10,26 +10,71 @@
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 </head>
 <body>
+
   <nav id="sidebar">
-    <div id="logo">⚔ Campaign<br><span>Generator</span></div>
-    <div id="campaign-select-wrap">
-      <select id="campaign-select"><option value="">— Select Campaign —</option></select>
-      <button id="btn-new-campaign">+ New</button>
+
+    <!-- Brand -->
+    <div id="logo">
+      <div id="logo-emblem">⚔</div>
+      <div id="logo-wordmark">
+        <span id="logo-name">Campaign</span>
+        <span id="logo-sub">Generator</span>
+      </div>
     </div>
-    <ul id="nav-links">
-      <li data-view="dashboard"  class="active">🏰 Dashboard</li>
-      <li data-view="maps">🗺 Maps</li>
-      <li data-view="npcs">👥 NPCs</li>
-      <li data-view="quests">📜 Quests</li>
-      <li data-view="encounters">⚔ Encounters</li>
-      <li data-view="lore">📖 Lore</li>
-      <li data-view="music">🎵 Music</li>
-    </ul>
-    <button id="player-link">🔗 Player View</button>
-    <div id="music-mini">
-      <div id="music-mini-label">♪ —</div>
-      <button id="btn-music-toggle">▶</button>
+
+    <!-- Scrollable body -->
+    <div id="sidebar-body">
+
+      <!-- Campaign selector -->
+      <div id="campaign-wrap">
+        <div class="sb-section-label">Campaign</div>
+        <div id="campaign-select-wrap">
+          <select id="campaign-select"><option value="">— Select Campaign —</option></select>
+          <button id="btn-new-campaign">+ New Campaign</button>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="sb-section-label" style="margin-top:8px">Navigate</div>
+      <ul id="nav-links">
+        <li data-view="dashboard" class="active">
+          <span class="nav-icon">🏰</span><span class="nav-label">Dashboard</span>
+        </li>
+        <li data-view="maps">
+          <span class="nav-icon">🗺</span><span class="nav-label">Maps</span>
+        </li>
+        <li data-view="npcs">
+          <span class="nav-icon">👥</span><span class="nav-label">NPCs</span>
+        </li>
+        <li data-view="quests">
+          <span class="nav-icon">📜</span><span class="nav-label">Quests</span>
+        </li>
+        <li data-view="encounters">
+          <span class="nav-icon">⚔</span><span class="nav-label">Encounters</span>
+        </li>
+        <li data-view="lore">
+          <span class="nav-icon">📖</span><span class="nav-label">Lore</span>
+        </li>
+        <li data-view="music">
+          <span class="nav-icon">🎵</span><span class="nav-label">Music</span>
+        </li>
+      </ul>
+
+    </div><!-- /#sidebar-body -->
+
+    <!-- Footer: player share + music mini -->
+    <div id="sidebar-footer">
+      <div class="sb-section-label">Player</div>
+      <button id="player-link">
+        <span class="nav-icon">🔗</span><span class="nav-label">Share Player View</span>
+      </button>
+      <div id="music-mini">
+        <div id="music-mini-dot"></div>
+        <div id="music-mini-label">♪ —</div>
+        <button id="btn-music-toggle">▶</button>
+      </div>
     </div>
+
   </nav>
 
   <main id="content">
@@ -38,7 +83,7 @@
 
   <div id="toast-container"></div>
 
-  <!-- Confirm dialog (stacks above main modal) -->
+  <!-- Confirm dialog -->
   <div id="confirm-overlay" class="hidden">
     <div id="confirm-dialog">
       <p id="confirm-msg"></p>
