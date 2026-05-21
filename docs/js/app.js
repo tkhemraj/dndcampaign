@@ -423,13 +423,22 @@ function renderMaps() {
   const subOpts=firstType.subs.map(s=>`<option value="${s.value}">${s.label}</option>`).join('');
 
   setContent(`
-    <div class="view-header"><h1>🗺 Map Generator</h1></div>
-    <div class="map-controls">
-      <select id="map-type" class="form-select" onchange="updateMapSubs()">${typeOpts}</select>
-      <select id="map-sub" class="form-select">${subOpts}</select>
-      <button class="btn btn-primary" onclick="doGenerateMap()">Generate Map</button>
-      <button class="btn btn-secondary" onclick="exportMapPNG()" id="btn-export" style="display:none">Export PNG</button>
-      ${getActiveCampaign()?`<button class="btn btn-secondary" onclick="saveMapToCampaign()" id="btn-save-map" style="display:none">Save to Campaign</button>`:''}
+    <div class="view-header">
+      <div>
+        <h1>Maps</h1>
+        <span class="subtitle">Procedural dungeon, outdoor & Wildemount maps — canvas rendered</span>
+      </div>
+    </div>
+    <div class="gen-panel">
+      <div class="gen-panel-fields">
+        <div class="form-group"><label>Map Type</label><select id="map-type" class="form-select" onchange="updateMapSubs()">${typeOpts}</select></div>
+        <div class="form-group"><label>Sub-type</label><select id="map-sub" class="form-select">${subOpts}</select></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;align-self:flex-end">
+        <button class="btn btn-primary gen-panel-btn" onclick="doGenerateMap()">⚙ Generate</button>
+        <button class="btn btn-secondary" onclick="exportMapPNG()" id="btn-export" style="display:none">↓ PNG</button>
+        ${getActiveCampaign()?`<button class="btn btn-secondary" onclick="saveMapToCampaign()" id="btn-save-map" style="display:none">💾 Save</button>`:''}
+      </div>
     </div>
     <div class="map-wrap" id="map-wrap">
       <div class="map-placeholder">Select a type and click Generate Map</div>
@@ -1435,18 +1444,23 @@ function _drawCompassRose(ctx, cx, cy, sz, pal) {
 function renderMusic() {
   setContent(`
     <div class="view-header">
-      <h1>🎵 Music</h1>
-      <p class="view-sub">Real orchestral instruments · Hall reverb · 8 cinematic moods — plays live in browser</p>
+      <div>
+        <h1>Music</h1>
+        <span class="subtitle">Real orchestral instruments · Hall reverb · Cinematic moods</span>
+      </div>
     </div>
     <div class="music-now" id="music-now">
       <span style="color:var(--muted)">Click a mood to start — instruments load on first use, then cached</span>
     </div>
+    <div class="music-intro">
+      Music streams real sampled instruments through the browser — no audio files to download. Click a mood to begin; click the active card again to stop.
+    </div>
     <div class="mood-grid" id="mood-grid"></div>
-    <div class="music-vol-row">
-      <label>Volume</label>
-      <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="0.72">
-      <span id="vol-label" class="vol-label">72%</span>
-      <button class="btn btn-secondary btn-sm" onclick="Music.stop()">⏹ Stop</button>
+    <div class="volume-row">
+      <span class="volume-label">🔊 Volume</span>
+      <input type="range" id="vol-slider" class="volume-slider" min="0" max="1" step="0.05" value="0.72">
+      <span id="vol-label" class="volume-val">72%</span>
+      <button class="btn btn-secondary btn-sm" onclick="Music.stop()">⏹ Stop All</button>
     </div>
   `);
 
@@ -1457,7 +1471,13 @@ function renderMusic() {
     if (m.theme) card.classList.add('theme-' + m.theme);
     card.dataset.mood = key;
     if (Music.getActive() === key) card.classList.add('active');
-    card.innerHTML = `<span class="mood-bpm">${m.bpm} bpm</span><div class="mood-icon">${m.icon}</div><div class="mood-name">${m.name}</div><div class="mood-desc">${m.desc}</div>${m.inst?`<div class="mood-inst">${m.inst}</div>`:''}`;
+    card.innerHTML = `
+      <div class="mood-card-icon">${m.icon}</div>
+      <div class="mood-card-name">${m.name}</div>
+      <div class="mood-card-desc">${m.desc}</div>
+      <div class="mood-card-meta">♩ ${m.bpm} BPM${m.inst?' · '+m.inst:''}</div>
+      ${m.inst?`<div class="mood-inst" style="display:none">${m.inst}</div>`:''}
+      <div class="mood-card-playing"><span></span> Now playing</div>`;
     card.addEventListener('click', async () => {
       if (Music.getActive() === key && !Music.isLoading()) Music.stop();
       else await Music.play(key);
@@ -1486,35 +1506,46 @@ function renderNPCs() {
 
   setContent(`
     <div class="view-header">
-      <h1>🧙 NPC Generator</h1>
-      <p class="view-sub">Full character briefs — appearance, personality, secrets, tactics, session hooks</p>
+      <div>
+        <h1>NPCs</h1>
+        <span class="subtitle">Full character briefs — appearance, personality, secrets, tactics, session hooks</span>
+      </div>
     </div>
-    <div class="gen-controls" style="flex-wrap:wrap">
-      <div class="gen-field"><label class="form-label">Faction</label><select id="npc-faction" class="form-select">${factionOpts}</select></div>
-      <div class="gen-field"><label class="form-label">Region</label><select id="npc-region" class="form-select">${regionOpts}</select></div>
-      <div class="gen-field"><label class="form-label">Race</label><select id="npc-race" class="form-select">${raceOpts}</select></div>
-      <div class="gen-field"><label class="form-label">Class</label><select id="npc-class" class="form-select">${classOpts}</select></div>
-      <div class="gen-field"><label class="form-label">Level</label><input id="npc-level" class="form-input" type="number" min="1" max="20" value="" placeholder="Any" style="width:70px"></div>
-      <button class="btn btn-primary" onclick="doGenerateNPC()">⚡ Generate NPC</button>
+    <div class="gen-panel">
+      <div class="gen-panel-fields">
+        <div class="form-group"><label>Faction</label><select id="npc-faction" class="form-select">${factionOpts}</select></div>
+        <div class="form-group"><label>Region</label><select id="npc-region" class="form-select">${regionOpts}</select></div>
+        <div class="form-group"><label>Race</label><select id="npc-race" class="form-select">${raceOpts}</select></div>
+        <div class="form-group"><label>Class</label><select id="npc-class" class="form-select">${classOpts}</select></div>
+        <div class="form-group"><label>Level</label><input id="npc-level" class="form-input" type="number" min="1" max="20" value="" placeholder="Any" style="width:70px"></div>
+      </div>
+      <button class="btn btn-primary gen-panel-btn" onclick="doGenerateNPC()">⚡ Generate NPC</button>
     </div>
     <div id="npc-result"></div>
     <hr class="section-hr">
     <div class="panel-header"><span>Saved NPCs (${npcs.length})</span></div>
     <div id="npc-list">
-      ${npcs.length ? npcs.slice().reverse().map(n=>npcListRow(n)).join('') : '<p class="empty-msg">No saved NPCs yet</p>'}
+      ${npcs.length ? npcs.slice().reverse().map(n=>npcListRow(n)).join('') : '<div class="empty-state"><div class="empty-state-icon">🧙</div><div class="empty-state-title">No saved NPCs yet</div><div class="empty-state-sub">Generate an NPC above and save them to your campaign.</div></div>'}
     </div>
   `);
 }
 
 function npcListRow(n) {
   const lvlLabel = n.level ? `Lvl ${n.level}` : '';
-  return `<div class="list-row" style="cursor:pointer" onclick="expandNPCRow('${n.id}')">
-    <div style="flex:1;min-width:0">
-      <span class="list-name">${n.name}</span>
-      <div class="list-meta">${n.race} ${n.class} ${lvlLabel} · ${n.alignment} · ${n.faction}</div>
-      <div class="list-meta" style="font-style:italic;margin-top:2px">${(n.factionRole||'').slice(0,70)}</div>
+  const initials = (n.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  return `<div class="npc-card2" onclick="expandNPCRow('${n.id}')">
+    <div class="npc-card2-avatar">${initials}</div>
+    <div class="npc-card2-header">
+      <div class="npc-card2-name">${n.name}</div>
+      <div class="npc-card2-sub">${n.race} ${n.class} ${lvlLabel} · ${n.alignment}</div>
+      <div class="npc-card2-chips">
+        ${n.faction?`<span class="chip">${n.faction}</span>`:''}
+        ${n.region?`<span class="chip">${n.region}</span>`:''}
+      </div>
     </div>
-    ${getActiveCampaign()?`<button class="btn-icon btn-danger-icon" onclick="event.stopPropagation();deleteNPC('${n.id}')">✕</button>`:''}
+    <div class="npc-card2-actions">
+      ${getActiveCampaign()?`<button class="btn-icon btn-danger-icon" onclick="event.stopPropagation();deleteNPC('${n.id}')">✕</button>`:''}
+    </div>
   </div>
   <div id="npcrow-${n.id}" style="display:none">${npcFullCard(n,false,true)}</div>`;
 }
@@ -1669,34 +1700,50 @@ function renderQuests() {
 
   setContent(`
     <div class="view-header">
-      <h1>📜 Quest Generator</h1>
-      <p class="view-sub">Full quest briefs — hook, acts, NPCs, encounters, twists, resolutions</p>
+      <div>
+        <h1>Quests</h1>
+        <span class="subtitle">Full quest briefs — hook, acts, NPCs, encounters, twists, resolutions</span>
+      </div>
     </div>
-    <div class="gen-controls">
-      <div class="gen-field"><label class="form-label">Faction</label><select id="q-faction" class="form-select">${factionOpts}</select></div>
-      <div class="gen-field"><label class="form-label">Region</label><select id="q-region" class="form-select">${regionOpts}</select></div>
-      <div class="gen-field"><label class="form-label">Party Level</label><input id="q-level" class="form-input" type="number" min="1" max="20" value="${camp?.partyLevel||5}" style="width:70px"></div>
-      <button class="btn btn-primary" onclick="doGenerateQuest()">⚡ Generate Quest</button>
+    <div class="gen-panel">
+      <div class="gen-panel-fields">
+        <div class="form-group"><label>Faction</label><select id="q-faction" class="form-select">${factionOpts}</select></div>
+        <div class="form-group"><label>Region</label><select id="q-region" class="form-select">${regionOpts}</select></div>
+        <div class="form-group"><label>Party Level</label><input id="q-level" class="form-input" type="number" min="1" max="20" value="${camp?.partyLevel||5}" style="width:70px"></div>
+      </div>
+      <button class="btn btn-primary gen-panel-btn" onclick="doGenerateQuest()">⚡ Generate Quest</button>
     </div>
     <div id="quest-result"></div>
     <hr class="section-hr">
     <div class="panel-header"><span>Active Quests (${active.length})</span></div>
-    <div id="quest-list-active">${active.length ? active.map(q=>questRow(q)).join('') : '<p class="empty-msg">No active quests — generate one above</p>'}</div>
-    ${complete.length?`<hr class="section-hr"><div class="panel-header" style="opacity:.6"><span>Completed (${complete.length})</span></div><div>${complete.map(q=>questRow(q)).join('')}</div>`:''}
+    <div id="quest-list-active">${active.length ? `<div class="quest-list-stack">${active.map(q=>questRow(q)).join('')}</div>` : '<div class="empty-state"><div class="empty-state-icon">📜</div><div class="empty-state-title">No active quests</div><div class="empty-state-sub">Generate a faction-aware quest hook above.</div></div>'}</div>
+    ${complete.length?`<hr class="section-hr"><div class="panel-header" style="opacity:.6"><span>Completed (${complete.length})</span></div><div class="quest-list-stack">${complete.map(q=>questRow(q)).join('')}</div>`:''}
   `);
 }
 
 function questRow(q) {
-  const diffColor={Easy:'ok',Medium:'warn',Hard:'warn',Deadly:'crit'}[q.difficulty]||'muted';
-  const icon=q.icon||'📜';
-  return `<div class="list-row quest-row" style="cursor:pointer" onclick="expandQuestRow('${q.id}')">
-    <div style="flex:1;min-width:0">
-      <div class="list-name" style="font-size:14px">${icon} ${q.title}</div>
-      <div class="list-meta">${q.faction} · ${q.region} · <span class="tag-${diffColor}">${q.difficulty}</span> · <em>${q.urgency}</em></div>
-      <div class="list-meta" style="color:var(--accent);margin-top:2px">💰 ${q.rewards?q.rewards.material:q.reward||''}</div>
+  const diffColors={Easy:'#3fb950',Medium:'#d29922',Hard:'#e07030',Deadly:'#c84040'};
+  const barColor=diffColors[q.difficulty]||'var(--border)';
+  const reward=q.rewards?q.rewards.material:q.reward||'';
+  return `<div class="quest-item" onclick="expandQuestRow('${q.id}')">
+    <div class="quest-item-bar" style="background:${barColor}"></div>
+    <div class="quest-item-body">
+      <div class="quest-item-header">
+        <span class="quest-item-title">${q.icon||'📜'} ${q.title}</span>
+        <div class="quest-item-badges">
+          <span class="badge badge-${q.status}">${q.status}</span>
+          <span class="badge badge-${q.difficulty}">${q.difficulty}</span>
+        </div>
+      </div>
+      <div class="quest-item-chips">
+        ${q.faction?`<span class="chip">${q.faction}</span>`:''}
+        ${q.region?`<span class="chip">${q.region}</span>`:''}
+        ${q.urgency?`<span class="chip">${q.urgency}</span>`:''}
+      </div>
+      ${reward?`<div class="quest-item-reward">💰 ${reward.slice(0,100)}${reward.length>100?'…':''}</div>`:''}
     </div>
-    <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
-      ${q.status==='Active'?`<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();completeQuest('${q.id}')">Complete</button>`:'<span class="tag-ok">Done</span>'}
+    <div class="quest-item-arrow" style="flex-direction:column;gap:6px">
+      ${q.status==='Active'?`<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();completeQuest('${q.id}')">✓</button>`:''}
       ${getActiveCampaign()?`<button class="btn-icon btn-danger-icon" onclick="event.stopPropagation();deleteQuest('${q.id}')">✕</button>`:''}
     </div>
   </div>
@@ -1890,22 +1937,29 @@ function renderEncounters() {
   const envOpts=['(Random)','Dungeon Corridor','Ruined Chamber','Forest Clearing','Tavern Common Room','Mountain Pass','Underground Lake Shore','Burning Building','Ship Deck','Sewer Tunnel','Ancient Temple','City Rooftops','Frozen Tundra'].map(e=>`<option>${e}</option>`).join('');
 
   setContent(`
-    <div class="view-header"><h1>⚔ Encounter Builder</h1><p class="view-sub">Full encounter briefs — environment, terrain, tactics, skill opportunities, loot</p></div>
-    <div class="gen-controls">
-      <div class="gen-field"><label class="form-label">Party Level</label><input id="enc-level" class="form-input" type="number" min="1" max="20" value="${level}" style="width:80px"></div>
-      <div class="gen-field"><label class="form-label">Party Size</label><input id="enc-size" class="form-input" type="number" min="1" max="8" value="${size}" style="width:80px"></div>
-      <div class="gen-field"><label class="form-label">Difficulty</label>
-        <select id="enc-diff" class="form-select">
-          <option value="easy">Easy</option>
-          <option value="medium" selected>Medium</option>
-          <option value="hard">Hard</option>
-          <option value="deadly">Deadly</option>
-        </select>
+    <div class="view-header">
+      <div>
+        <h1>Encounters</h1>
+        <span class="subtitle">Full encounter briefs — environment, terrain, tactics, skill opportunities, loot</span>
       </div>
-      <div class="gen-field"><label class="form-label">Environment</label>
-        <select id="enc-env" class="form-select">${envOpts}</select>
+    </div>
+    <div class="gen-panel">
+      <div class="gen-panel-fields">
+        <div class="form-group"><label>Party Level</label><input id="enc-level" class="form-input" type="number" min="1" max="20" value="${level}" style="width:80px"></div>
+        <div class="form-group"><label>Party Size</label><input id="enc-size" class="form-input" type="number" min="1" max="8" value="${size}" style="width:80px"></div>
+        <div class="form-group"><label>Difficulty</label>
+          <select id="enc-diff" class="form-select">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+            <option value="deadly">Deadly</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Environment</label>
+          <select id="enc-env" class="form-select">${envOpts}</select>
+        </div>
       </div>
-      <button class="btn btn-primary" onclick="doGenerateEncounter()">Generate Encounter</button>
+      <button class="btn btn-primary gen-panel-btn" onclick="doGenerateEncounter()">⚔ Generate</button>
     </div>
     <div id="enc-result"></div>
     ${camp?.activeCombat?`<hr class="section-hr"><div class="panel-header"><span>🩸 Active Combat</span></div><div class="info-card"><p>Round ${camp.activeCombat.round} — ${camp.activeCombat.combatants.length} combatants</p><button class="btn btn-primary" onclick="navigate('combat')">Resume Combat →</button></div>`:''}
@@ -2423,23 +2477,28 @@ window.doDeathSave=function(id, success){
 
 function renderLore() {
   setContent(`
-    <div class="view-header"><h1>📖 Wildemount Lore Reference</h1></div>
-    <div class="lore-tabs" id="lore-tabs">
-      <button class="lore-tab active" onclick="showLoreTab('factions',this)">Factions</button>
-      <button class="lore-tab" onclick="showLoreTab('regions',this)">Regions</button>
-      <button class="lore-tab" onclick="showLoreTab('deities',this)">Deities</button>
-      <button class="lore-tab" onclick="showLoreTab('npcs',this)">Key NPCs</button>
-      <button class="lore-tab" onclick="showLoreTab('history',this)">History</button>
-      <button class="lore-tab" onclick="showLoreTab('plots',this)">Plot Seeds</button>
-      <button class="lore-tab" onclick="showLoreTab('names',this)">Name Generator</button>
+    <div class="view-header">
+      <div>
+        <h1>Lore Reference</h1>
+        <span class="subtitle">Wildemount world knowledge, factions & history</span>
+      </div>
+    </div>
+    <div class="filter-pills" id="lore-tabs">
+      <button class="filter-pill active" data-tab="factions" onclick="showLoreTab('factions',this)"><span class="filter-pill-icon">⚔</span> Factions</button>
+      <button class="filter-pill" data-tab="regions" onclick="showLoreTab('regions',this)"><span class="filter-pill-icon">📍</span> Regions</button>
+      <button class="filter-pill" data-tab="deities" onclick="showLoreTab('deities',this)"><span class="filter-pill-icon">✦</span> Deities</button>
+      <button class="filter-pill" data-tab="npcs" onclick="showLoreTab('npcs',this)"><span class="filter-pill-icon">🧙</span> Key NPCs</button>
+      <button class="filter-pill" data-tab="history" onclick="showLoreTab('history',this)"><span class="filter-pill-icon">📜</span> History</button>
+      <button class="filter-pill" data-tab="plots" onclick="showLoreTab('plots',this)"><span class="filter-pill-icon">◈</span> Plot Seeds</button>
+      <button class="filter-pill" data-tab="names" onclick="showLoreTab('names',this)"><span class="filter-pill-icon">◌</span> Names</button>
     </div>
     <div id="lore-content"></div>
   `);
-  showLoreTab('factions', document.querySelector('.lore-tab'));
+  showLoreTab('factions', document.querySelector('.filter-pill'));
 }
 
 window.showLoreTab=function(tab, btn){
-  document.querySelectorAll('.lore-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#lore-tabs .filter-pill').forEach(b=>b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const el=document.getElementById('lore-content');
   if (tab==='factions') {
@@ -2528,8 +2587,10 @@ window.doGenerateNames=function(){
 function renderSpells() {
   setContent(`
     <div class="view-header">
-      <h1>✨ Spell Reference</h1>
-      <p class="view-sub">SRD 5.1 (CC BY 4.0) · ${SPELLS.length} spells · Filter by level, school, or class</p>
+      <div>
+        <h1>Spell Reference</h1>
+        <span class="subtitle">SRD 5.1 (CC BY 4.0) · ${SPELLS.length} spells · Filter by level, school, or class</span>
+      </div>
     </div>
     <div class="spell-filters" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px">
       <select id="sp-level" class="form-select" style="width:110px" onchange="filterSpells()">
@@ -2597,25 +2658,27 @@ window.filterSpells=function(){
 function renderRules() {
   setContent(`
     <div class="view-header">
-      <h1>📋 Rules Reference</h1>
-      <p class="view-sub">SRD 5.1 quick-reference · Combat, Conditions, Resting, Spellcasting, Movement</p>
+      <div>
+        <h1>Rules Reference</h1>
+        <span class="subtitle">SRD 5.1 quick-reference · Combat, Conditions, Resting, Spellcasting, Movement</span>
+      </div>
     </div>
-    <div class="lore-tabs" id="rules-tabs">
-      <button class="lore-tab active" onclick="showRulesTab('combat',this)">Combat Actions</button>
-      <button class="lore-tab" onclick="showRulesTab('conditions',this)">Conditions</button>
-      <button class="lore-tab" onclick="showRulesTab('exhaustion',this)">Exhaustion</button>
-      <button class="lore-tab" onclick="showRulesTab('resting',this)">Resting</button>
-      <button class="lore-tab" onclick="showRulesTab('spellcasting',this)">Spellcasting</button>
-      <button class="lore-tab" onclick="showRulesTab('movement',this)">Movement</button>
-      <button class="lore-tab" onclick="showRulesTab('other',this)">Other Rules</button>
+    <div class="filter-pills" id="rules-tabs">
+      <button class="filter-pill active" onclick="showRulesTab('combat',this)">⚔ Combat</button>
+      <button class="filter-pill" onclick="showRulesTab('conditions',this)">🩹 Conditions</button>
+      <button class="filter-pill" onclick="showRulesTab('exhaustion',this)">💤 Exhaustion</button>
+      <button class="filter-pill" onclick="showRulesTab('resting',this)">🛌 Resting</button>
+      <button class="filter-pill" onclick="showRulesTab('spellcasting',this)">✨ Spellcasting</button>
+      <button class="filter-pill" onclick="showRulesTab('movement',this)">🏃 Movement</button>
+      <button class="filter-pill" onclick="showRulesTab('other',this)">◈ Other</button>
     </div>
     <div id="rules-content" style="margin-top:18px"></div>
   `);
-  showRulesTab('combat', document.querySelector('#rules-tabs .lore-tab'));
+  showRulesTab('combat', document.querySelector('#rules-tabs .filter-pill'));
 }
 
 window.showRulesTab=function(tab,btn){
-  document.querySelectorAll('#rules-tabs .lore-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#rules-tabs .filter-pill').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   const el=document.getElementById('rules-content');
   const R=RULES_REFERENCE;
