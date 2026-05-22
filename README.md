@@ -112,7 +112,7 @@ All campaign data lives in a local `dndcampaign.db` SQLite file. No migrations n
 
 A companion bot that brings the toolkit into your Discord server — players and the DM see different things.
 
-**[→ dndcampaign-discordbot](https://github.com/tkhemraj/dndcampaign-discordbot)**
+**[→ Add to Discord](https://discord.com/api/oauth2/authorize?client_id=1507476166494392420&permissions=117760&scope=bot%20applications.commands)** &nbsp;·&nbsp; **[→ Source](https://github.com/tkhemraj/dndcampaign-discordbot)**
 
 | What players see | What the DM sees |
 |---|---|
