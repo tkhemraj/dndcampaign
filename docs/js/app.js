@@ -1570,10 +1570,35 @@ function renderNPCs() {
     <div id="npc-result"></div>
     <hr class="section-hr">
     <div class="panel-header"><span>Saved NPCs (${npcs.length})</span></div>
+    <div class="search-row">
+      <input type="search" id="npc-search" class="search-input" placeholder="Search by name, race, class, faction…"/>
+    </div>
     <div id="npc-list">
       ${npcs.length ? npcs.slice().reverse().map(n=>npcListRow(n)).join('') : '<div class="empty-state"><div class="empty-state-icon">🧙</div><div class="empty-state-title">No saved NPCs yet</div><div class="empty-state-sub">Generate an NPC above and save them to your campaign.</div></div>'}
     </div>
   `);
+
+  const searchEl = document.getElementById('npc-search');
+  if (searchEl) {
+    searchEl.addEventListener('input', () => {
+      const q = searchEl.value.toLowerCase();
+      const list = document.getElementById('npc-list');
+      if (!list) return;
+      if (!q) {
+        list.innerHTML = npcs.length ? npcs.slice().reverse().map(n=>npcListRow(n)).join('') : '';
+        return;
+      }
+      const filtered = npcs.filter(n =>
+        (n.name    ||'').toLowerCase().includes(q) ||
+        (n.race    ||'').toLowerCase().includes(q) ||
+        (n.class   ||'').toLowerCase().includes(q) ||
+        (n.faction ||'').toLowerCase().includes(q)
+      );
+      list.innerHTML = filtered.length
+        ? filtered.slice().reverse().map(n=>npcListRow(n)).join('')
+        : '<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">No matches</div></div>';
+    });
+  }
 }
 
 function npcListRow(n) {
@@ -2275,6 +2300,7 @@ function combatantRow(c, idx, isActive) {
       ${!c.defeated?`
         <button class="cr-btn cr-btn-heal" onclick="combatEditHP('${c.id}',true)">+HP</button>
         <button class="cr-btn cr-btn-dmg"  onclick="combatEditHP('${c.id}',false)">-HP</button>
+        <button class="cr-btn" onclick="editCombatantNotes('${c.id}')" title="Edit notes">📝</button>
       `:''}
       <button class="cr-btn" onclick="toggleDefeated('${c.id}')">${c.defeated?'↩':'💀'}</button>
       <button class="cr-btn cr-btn-del" onclick="removeCombatant('${c.id}')">✕</button>
@@ -2365,6 +2391,27 @@ window.doEditInitiative=function(id){
   const c=camp.activeCombat.combatants.find(x=>x.id===id); if(!c) return;
   c.initiative=val;
   camp.activeCombat.combatants.sort((a,b)=>b.initiative-a.initiative);
+  saveState(); closeModal(); renderCombat();
+};
+
+window.editCombatantNotes=function(id){
+  const camp=getActiveCampaign(); if(!camp||!camp.activeCombat) return;
+  const c=camp.activeCombat.combatants.find(x=>x.id===id); if(!c) return;
+  showModal(`📝 ${c.name}`,`
+    <label class="form-label">Notes</label>
+    <textarea id="notes-val" class="form-input" style="min-height:120px;resize:vertical">${c.notes||''}</textarea>
+  `,[
+    {label:'Save',cls:'btn-primary',action:`doEditCombatantNotes('${id}')`},
+    {label:'Cancel',action:'closeModal()'},
+  ]);
+  setTimeout(()=>document.getElementById('notes-val')?.focus(),50);
+};
+
+window.doEditCombatantNotes=function(id){
+  const notes=document.getElementById('notes-val').value;
+  const camp=getActiveCampaign(); if(!camp||!camp.activeCombat) return;
+  const c=camp.activeCombat.combatants.find(x=>x.id===id); if(!c) return;
+  c.notes=notes;
   saveState(); closeModal(); renderCombat();
 };
 

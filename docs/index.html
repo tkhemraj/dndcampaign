@@ -750,6 +750,11 @@
     .badge-Deadly,.badge-deadly { background:#1a0000; color:var(--crit); border:1px solid rgba(200,64,64,.3); }
 
     /* NPC card2 (compact list style) */
+    .search-row { margin-bottom: 14px; }
+    .search-input { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:13px; padding:8px 14px; outline:none; transition:border-color .15s, box-shadow .15s; }
+    .search-input:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(200,151,60,0.18); }
+    .search-input::placeholder { color:var(--muted); }
+
     .npc-card2 { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; cursor:pointer; transition:all .15s; }
     .npc-card2:hover { border-color:var(--accent); }
     .npc-card2-avatar { width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,rgba(200,151,60,.28),rgba(200,151,60,.08)); border:1px solid rgba(200,151,60,.35); display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:15px; font-weight:700; color:var(--accent); flex-shrink:0; }
