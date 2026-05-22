@@ -67,6 +67,7 @@ let _parts = [];
 let _activeMood = null;
 let _synths = [];
 let _volume = -12;
+let _volNode = null;
 
 function initMusic() {
   Tone.getTransport().bpm.value = 120;
@@ -75,6 +76,7 @@ function initMusic() {
 function stopAll() {
   _parts.forEach(p => { try { p.stop(); p.dispose(); } catch(_) {} });
   _synths.forEach(s => { try { s.dispose(); } catch(_) {} });
+  if (_volNode) { try { _volNode.dispose(); } catch(_) {} _volNode = null; }
   _parts = [];
   _synths = [];
   Tone.getTransport().stop();
@@ -91,7 +93,8 @@ async function playMood(moodKey) {
 
   Tone.getTransport().bpm.value = mood.bpm;
 
-  const vol    = new Tone.Volume(_volume).toDestination();
+  _volNode = new Tone.Volume(_volume).toDestination();
+  const vol = _volNode;
   const reverb = new Tone.Reverb({ decay: moodKey === 'dungeon' ? 4 : 1.5, wet: 0.3 }).connect(vol);
   await reverb.ready;
 
@@ -171,6 +174,7 @@ async function playMood(moodKey) {
 
 function setVolume(db) {
   _volume = db;
+  if (_volNode) _volNode.volume.value = db;
 }
 
 function _syncMusicViewState() {
