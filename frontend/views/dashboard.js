@@ -187,6 +187,10 @@ window.renderDashboardView = async function(campaignId) {
                   <div class="session-node-header">
                     <span class="session-node-date">${s.created_at?.slice(0,10)}</span>
                     <span class="session-node-title">${s.title}</span>
+                    <div class="session-node-actions">
+                      <button class="btn btn-secondary btn-sm sess-edit-btn" data-id="${s.id}">Edit</button>
+                      <button class="btn btn-danger btn-sm sess-del-btn" data-id="${s.id}" data-title="${s.title.replace(/"/g,'&quot;')}">✕</button>
+                    </div>
                   </div>
                   ${s.content ? `<p class="session-node-text">${s.content.slice(0,200)}${s.content.length>200?'…':''}</p>` : ''}
                 </div>
@@ -239,6 +243,24 @@ window.renderDashboardView = async function(campaignId) {
   // ── Wire buttons ───────────────────────────────────────────────────────────
   document.getElementById('btn-edit-campaign').addEventListener('click', () => showNewCampaignModal(campaign));
 
+  document.querySelectorAll('.sess-edit-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const sess = sortedSessions.find(s => s.id === parseInt(btn.dataset.id));
+      if (sess) _editSessionModal(sess, () => renderDashboardView(campaignId));
+    });
+  });
+  document.querySelectorAll('.sess-del-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      confirmModal(`Delete "${btn.dataset.title}"?`, async () => {
+        await api(`/api/lore/${btn.dataset.id}`, 'DELETE');
+        toast('Session deleted', 'info');
+        await renderDashboardView(campaignId);
+      });
+    });
+  });
+
   const openLogSession = () => _showLogSessionModal(campaignId, sortedSessions.length, () => renderDashboardView(campaignId));
 
   document.getElementById('btn-log-session-strip').addEventListener('click', openLogSession);
@@ -247,6 +269,45 @@ window.renderDashboardView = async function(campaignId) {
 };
 
 // ── Session log modal ─────────────────────────────────────────────────────────
+function _editSessionModal(sess, onSave) {
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:20px">📓 Edit Session</h2>
+    <div class="form-group">
+      <label>Title</label>
+      <input id="sess-title" value="${sess.title}"/>
+    </div>
+    <div class="form-group">
+      <label>What happened?</label>
+      <textarea id="sess-content" style="min-height:180px">${sess.content || ''}</textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-primary"   id="btn-save-sess">Save</button>
+      <button class="btn btn-secondary" id="btn-cancel-sess">Cancel</button>
+    </div>`;
+  openModal();
+  setTimeout(() => document.getElementById('sess-content').focus(), 60);
+  document.getElementById('btn-cancel-sess').addEventListener('click', closeModal);
+  document.getElementById('btn-save-sess').addEventListener('click', async () => {
+    const title   = document.getElementById('sess-title').value.trim() || sess.title;
+    const content = document.getElementById('sess-content').value.trim();
+    const btn     = document.getElementById('btn-save-sess');
+    btn.disabled  = true; btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      await api(`/api/lore/${sess.id}`, 'PUT', {
+        campaign_id: sess.campaign_id, title, category: 'session',
+        content, tags: sess.tags || '',
+      });
+      closeModal();
+      toast('Session updated', 'success');
+      await onSave();
+    } catch(_) {
+      toast('Save failed', 'error');
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  });
+}
+
 function _showLogSessionModal(campaignId, existingCount, onSave) {
   const n = existingCount + 1;
   const body = document.getElementById('modal-body');

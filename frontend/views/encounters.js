@@ -480,6 +480,7 @@ function combatantRow(c, isActive) {
       <button class="btn btn-secondary btn-sm" onclick="hpEdit(${c.id},'${c.name.replace(/'/g,"\\'")}',${c.hp},${c.max_hp})">HP</button>
       <button class="btn btn-secondary btn-sm" onclick="initEdit(${c.id},'${c.name.replace(/'/g,"\\'")}',${c.initiative||0})">Init</button>
       <button class="btn btn-secondary btn-sm" onclick="condEdit(${c.id},'${(c.conditions||'[]').replace(/'/g,"\\'")}')">Cond</button>
+      <button class="btn btn-secondary btn-sm" onclick="notesEdit(${c.id},'${c.name.replace(/'/g,"\\'")}','${(c.notes||'').replace(/'/g,"\\'").replace(/\n/g,'\\n')}')">📝</button>
       <button class="btn btn-danger btn-sm"    onclick="removeCombatant(${_activeEncounterId},${c.id})">✕</button>
     </div>
     ${c.notes?`<div class="combatant-notes">${c.notes}</div>`:''}
@@ -506,6 +507,29 @@ window.condEdit = (cid, condJson) => {
   const current = JSON.parse(condJson || '[]');
   conditionPickerModal(current, async conditions => {
     await api(`/api/encounters/${_activeEncounterId}/conditions`, 'PATCH', { combatant_id:cid, conditions });
+    await refreshTracker();
+  });
+};
+
+window.notesEdit = (cid, name, currentNotes) => {
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <h2 style="font-family:'Cinzel',serif;color:var(--accent);margin-bottom:16px">📝 ${name}</h2>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="notes-ta" style="min-height:140px">${currentNotes.replace(/\\n/g,'\n')}</textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-primary"   id="notes-save">Save</button>
+      <button class="btn btn-secondary" id="notes-cancel">Cancel</button>
+    </div>`;
+  openModal();
+  setTimeout(() => document.getElementById('notes-ta').focus(), 60);
+  document.getElementById('notes-cancel').addEventListener('click', closeModal);
+  document.getElementById('notes-save').addEventListener('click', async () => {
+    const notes = document.getElementById('notes-ta').value;
+    await api(`/api/encounters/${_activeEncounterId}/notes`, 'PATCH', { combatant_id: cid, notes });
+    closeModal();
     await refreshTracker();
   });
 };

@@ -26,6 +26,9 @@ class HpUpdate(BaseModel):
 class ConditionUpdate(BaseModel):
     combatant_id: int; conditions: list[str]
 
+class NotesUpdate(BaseModel):
+    combatant_id: int; notes: str
+
 @router.get("/")
 def list_encounters(campaign_id: Optional[int] = Query(None)):
     if campaign_id:
@@ -97,6 +100,12 @@ def update_hp(eid: int, body: HpUpdate):
 def set_conditions(eid: int, body: ConditionUpdate):
     db.execute("UPDATE combatants SET conditions=? WHERE id=? AND encounter_id=?",
                (json.dumps(body.conditions), body.combatant_id, eid))
+    return get_encounter(eid)
+
+@router.patch("/{eid}/notes")
+def set_combatant_notes(eid: int, body: NotesUpdate):
+    db.execute("UPDATE combatants SET notes=? WHERE id=? AND encounter_id=?",
+               (body.notes, body.combatant_id, eid))
     return get_encounter(eid)
 
 @router.post("/{eid}/roll-initiative")

@@ -2,6 +2,7 @@
 const MOD = s => { const m = Math.floor((s - 10) / 2); return m >= 0 ? `+${m}` : `${m}`; };
 
 let _npcView = 'cards';
+let _allNpcs = [];
 
 window.renderNpcsView = async function(campaignId) {
   const el = document.getElementById('content');
@@ -18,6 +19,10 @@ window.renderNpcsView = async function(campaignId) {
         </div>
         <button class="btn btn-primary" id="btn-new-npc">+ Add NPC</button>
       </div>
+    </div>
+
+    <div class="search-row">
+      <input type="search" id="npc-search" class="search-input" placeholder="Search by name, race, class, faction…"/>
     </div>
 
     <div class="gen-panel">
@@ -46,24 +51,37 @@ window.renderNpcsView = async function(campaignId) {
     <div id="npc-list"></div>
   `;
 
+  const renderNpcList = (npcs) => {
+    const q = (document.getElementById('npc-search')?.value || '').toLowerCase();
+    const filtered = q ? npcs.filter(n =>
+      (n.name      || '').toLowerCase().includes(q) ||
+      (n.race      || '').toLowerCase().includes(q) ||
+      (n.npc_class || '').toLowerCase().includes(q) ||
+      (n.faction   || '').toLowerCase().includes(q)
+    ) : npcs;
+    _npcView === 'cards' ? _renderNpcCards(filtered) : _renderNpcTable(filtered);
+  };
+
   const loadList = async () => {
-    const url  = campaignId ? `/api/npcs/?campaign_id=${campaignId}` : '/api/npcs/';
-    const npcs = await api(url);
-    _npcView === 'cards' ? _renderNpcCards(npcs) : _renderNpcTable(npcs);
+    const url = campaignId ? `/api/npcs/?campaign_id=${campaignId}` : '/api/npcs/';
+    _allNpcs = await api(url);
+    renderNpcList(_allNpcs);
   };
   await loadList();
+
+  document.getElementById('npc-search').addEventListener('input', () => renderNpcList(_allNpcs));
 
   document.getElementById('btn-view-cards').addEventListener('click', () => {
     _npcView = 'cards';
     document.getElementById('btn-view-cards').classList.add('active');
     document.getElementById('btn-view-table').classList.remove('active');
-    loadList();
+    renderNpcList(_allNpcs);
   });
   document.getElementById('btn-view-table').addEventListener('click', () => {
     _npcView = 'table';
     document.getElementById('btn-view-table').classList.add('active');
     document.getElementById('btn-view-cards').classList.remove('active');
-    loadList();
+    renderNpcList(_allNpcs);
   });
 
   document.getElementById('btn-do-gen-npc').addEventListener('click', async () => {
@@ -174,10 +192,13 @@ function _renderNpcTable(npcs) {
 
 // ── NPC modal ─────────────────────────────────────────────────────────────────
 function showNpcModal(npc, isNew, onSave) {
+  const STAT_KEYS = ['str_score','dex_score','con_score','int_score','wis_score','cha_score'];
+  const STAT_IDS  = ['str','dex','con','int','wis','cha'];
+  const STAT_LBLS = ['STR','DEX','CON','INT','WIS','CHA'];
+
   const body = document.getElementById('modal-body');
   body.innerHTML = `
     <h2 class="modal-title">${isNew && !npc.id ? 'New NPC' : npc.name || 'NPC'}</h2>
-    ${npc.id ? statBlockHtml(npc) : ''}
     <div class="form-row">
       <div class="form-group"><label>Name</label><input id="f-name" value="${npc.name||''}"/></div>
       <div class="form-group"><label>Race</label><input id="f-race" value="${npc.race||''}"/></div>
@@ -202,11 +223,32 @@ function showNpcModal(npc, isNew, onSave) {
     <div class="form-group"><label>Flaw</label><textarea id="f-flaw">${npc.flaw||''}</textarea></div>
     <div class="form-group"><label>Backstory</label><textarea id="f-backstory" style="min-height:100px">${npc.backstory||''}</textarea></div>
     <div class="form-group"><label>Notes</label><textarea id="f-notes">${npc.notes||''}</textarea></div>
+
+    <div class="modal-section-sep">Combat Stats</div>
+    <div class="form-row">
+      <div class="form-group"><label>HP</label><input id="f-hp" type="number" value="${npc.hp||8}" min="1"/></div>
+      <div class="form-group"><label>AC</label><input id="f-ac" type="number" value="${npc.ac||10}" min="1"/></div>
+    </div>
+    <div class="form-row" style="flex-wrap:wrap">
+      ${STAT_LBLS.map((lbl, i) => `
+        <div class="form-group stat-input-group">
+          <label>${lbl}</label>
+          <input id="f-${STAT_IDS[i]}" type="number" value="${npc[STAT_KEYS[i]]||10}" min="1" max="30"/>
+          <div class="stat-mod-preview" id="mod-${STAT_IDS[i]}">${MOD(npc[STAT_KEYS[i]]||10)}</div>
+        </div>`).join('')}
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-primary" id="btn-save-npc">Save</button>
       ${npc.id ? `<button class="btn btn-danger" id="btn-del-npc">Delete</button>` : ''}
     </div>
   `;
+
+  STAT_IDS.forEach(sid => {
+    document.getElementById(`f-${sid}`).addEventListener('input', e => {
+      document.getElementById(`mod-${sid}`).textContent = MOD(parseInt(e.target.value) || 10);
+    });
+  });
   openModal();
 
   document.getElementById('btn-save-npc').addEventListener('click', async () => {
@@ -217,9 +259,10 @@ function showNpcModal(npc, isNew, onSave) {
       status: v('f-status'), personality: v('f-personality'),
       ideal: v('f-ideal'), bond: v('f-bond'), flaw: v('f-flaw'),
       backstory: v('f-backstory'), notes: v('f-notes'),
-      hp: npc.hp, ac: npc.ac,
-      str_score: npc.str_score, dex_score: npc.dex_score, con_score: npc.con_score,
-      int_score: npc.int_score, wis_score: npc.wis_score, cha_score: npc.cha_score,
+      hp: parseInt(v('f-hp')) || 0, ac: parseInt(v('f-ac')) || 10,
+      str_score: parseInt(v('f-str')) || 10, dex_score: parseInt(v('f-dex')) || 10,
+      con_score: parseInt(v('f-con')) || 10, int_score: parseInt(v('f-int')) || 10,
+      wis_score: parseInt(v('f-wis')) || 10, cha_score: parseInt(v('f-cha')) || 10,
     };
     if (npc.id) await api(`/api/npcs/${npc.id}`, 'PUT', payload);
     else await api('/api/npcs/', 'POST', payload);
