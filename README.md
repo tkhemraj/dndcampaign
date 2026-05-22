@@ -4,7 +4,7 @@
 
 No external APIs. No subscriptions. No proprietary data. Runs entirely on a Python backend + your browser.
 
-**[→ Live Demo (GitHub Pages)](https://tkhemraj.github.io/dndcampaign/)**
+**[→ Live Demo (GitHub Pages)](https://tkhemraj.github.io/dndcampaign/)** &nbsp;·&nbsp; **[→ Discord Bot](https://github.com/tkhemraj/dndcampaign-discordbot)**
 
 ---
 
@@ -105,6 +105,23 @@ dndcampaign/
 ```
 
 All campaign data lives in a local `dndcampaign.db` SQLite file. No migrations needed — the schema auto-creates on first run.
+
+---
+
+## Discord Bot
+
+A companion bot that brings the toolkit into your Discord server — players and the DM see different things.
+
+**[→ dndcampaign-discordbot](https://github.com/tkhemraj/dndcampaign-discordbot)**
+
+| What players see | What the DM sees |
+|---|---|
+| Live combat tracker embed (updates silently) | Full NPC cards, quest details, encounter rosters |
+| Quest board posted on demand | Ephemeral confirmations for every action |
+| Map images (Pillow-rendered PNG) | DM-only preview before sharing |
+| Session recaps | All generation and campaign management commands |
+
+Fully standalone — generators and Wildemount data bundled in, no dependency on a running dndcampaign instance (optional shared-DB mode available).
 
 ---
 
